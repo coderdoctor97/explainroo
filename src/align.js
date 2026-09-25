@@ -109,7 +109,11 @@ export function alignWords(words, heard, duration) {
   }
 
   const spans = words.map(() => null);
-  const add = (wi, s, e) => {
+  const hits = words.map(() => 0);
+  const need = words.map(() => 0);
+  for (const t of tokens) need[t.wi]++;
+  const add = (wi, s, e, n = 1) => {
+    hits[wi] += n;
     const cur = spans[wi];
     spans[wi] = cur ? { start: Math.min(cur.start, s), end: Math.max(cur.end, e) } : { start: s, end: e };
   };
@@ -125,7 +129,7 @@ export function alignWords(words, heard, duration) {
     else if (m === 5) {
       let s = i - 1;
       while (s > 0 && tokens[s - 1].wi === tokens[i - 1].wi) s--;
-      add(tokens[i - 1].wi, H[j - 1].start, H[j - 1].end);
+      add(tokens[i - 1].wi, H[j - 1].start, H[j - 1].end, i - s);
       matched += i - s;
       i = s;
       j--;
@@ -135,7 +139,9 @@ export function alignWords(words, heard, duration) {
 
   // Interpolate words Whisper did not confirm, by character length, between
   // the nearest confirmed neighbours.
-  const out = words.map((w, wi) => ({ start: 0, end: 0, matched: !!spans[wi] }));
+  // A word counts as confirmed only when every part of it was heard, so
+  // "example.com" read as "example comm" is reported.
+  const out = words.map((w, wi) => ({ start: 0, end: 0, matched: !!spans[wi] && hits[wi] >= need[wi] }));
   const weight = words.map((w) => Math.max(1, String(w.spoken).length));
   let k = 0;
   while (k < words.length) {

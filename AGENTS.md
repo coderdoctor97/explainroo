@@ -44,7 +44,8 @@ are your eyes and ears.
 
 3. **Write `script.md` first.** The narration drives everything else.
    - Aim for 45 to 120 seconds unless the user asks otherwise. At the default
-     speed the voice speaks about 150 words a minute.
+     speed a finished video carries about 150 words a minute, pauses
+     included.
    - Structure: a hook that poses the question or problem, the explanation in
      small steps, one concrete example, then a short payoff line.
    - One idea per scene, usually 1 to 3 sentences (4 to 15 seconds).
@@ -54,7 +55,8 @@ are your eyes and ears.
      trigger at least one visual.
    - Use `{shown|spoken}` for anything the voice might misread: acronyms
      (`{SQL|sequel}`, `{CLI|C L I}`), versions (`{v2.1|version two point one}`),
-     symbols and URLs.
+     symbols, domains (`{example.com|example dot com}`, the voice otherwise
+     says "example comm") and URLs.
 
 4. **Generate the voice and read the report.**
 
@@ -165,7 +167,7 @@ videos/<slug>/
 | `size` | `16:9` | `16:9`, `9:16`, `1:1`, `4:5` or `WIDTHxHEIGHT` |
 | `fps` | 30 | 24, 25, 30, 50 or 60 |
 | `voice` | `af_heart` | run `explainroo voices` |
-| `speed` | 1 | 0.6 to 1.6 |
+| `speed` | 0.9 | 0.6 to 1.6 (voice speed) |
 | `music` | `true` | `true` (theme style), a style name, `{ "style", "volume" }` or `false` |
 | `sfx` | `true` | `true`, `"minimal"` or `false` |
 | `captions` | `"auto"` | burned-in captions; auto means on for vertical and square videos |
@@ -185,5 +187,9 @@ Scene attributes in `script.md`: `## id {hold=1.5 min=5 lead=0.2 transition=cut}
   audio engine (`engine/audio/`).
 - Run `npm test` after changes. For engine changes, render the examples in
   `examples/` and look at their stills and sheets.
+- `dev/audio-lab.mjs` renders every music style and sound effect and measures
+  loudness, true peak and determinism with ffmpeg.
+- `npm run build:icons` rebuilds `engine/icons/` from `lucide-static`, and
+  `npm run build:fonts` downloads the bundled fonts again.
 - Keep the scene API small and forgiving, with error messages that tell an
   agent exactly what to change.

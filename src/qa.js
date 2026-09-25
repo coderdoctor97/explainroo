@@ -13,8 +13,9 @@ export async function check(project, { log = () => {}, step = 0.25 } = {}) {
   const issues = [];
   for (const sc of project.script.scenes) {
     const v = voices[sc.id];
-    if (v && v.duration && v.matchRate < 0.85) {
-      issues.push({ level: 'warn', scene: sc.id, t: null, message: `the voice check heard only ${Math.round(v.matchRate * 100)}% of the words as written. Unconfirmed: ${v.unmatched.slice(0, 8).join(', ')}. Heard: "${v.transcript.slice(0, 160)}". Fix pronunciation with {shown|spoken}.` });
+    const suspicious = v ? v.unmatched.filter((w) => w.replace(/[^\p{L}\p{N}]/gu, '').length > 3) : [];
+    if (v && v.duration && (v.matchRate < 0.9 || suspicious.length)) {
+      issues.push({ level: 'warn', scene: sc.id, t: null, message: `the voice check could not confirm ${suspicious.length ? suspicious.slice(0, 8).map((w) => `"${w}"`).join(', ') : `${Math.round((1 - v.matchRate) * 100)}% of the words`}. It heard: "${v.transcript.slice(0, 200)}". If a word is mispronounced, write it as {shown|spoken} in script.md.` });
     }
     if (v && v.duration > 40) issues.push({ level: 'hint', scene: sc.id, t: null, message: `the narration runs ${v.duration.toFixed(0)}s; long scenes are easier to follow when split` });
   }

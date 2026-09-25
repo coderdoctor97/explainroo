@@ -9,7 +9,7 @@ import { alignWords } from './align.js';
 import { loadTTS, transcribeWords, TTS_MODEL, ASR_MODEL, TTS_SAMPLE_RATE, ttsDtype } from './models.js';
 import { writeWav, readWav, resample, trimSilence } from './wav.js';
 
-const PIPELINE = 4;
+const PIPELINE = 5;
 
 function sceneHash(scene, chunks, config) {
   return crypto
