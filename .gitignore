@@ -6,6 +6,5 @@ videos/
 # build output inside any project
 build/
 out/
-!examples/*/out/
 .cache/
 .scratch/

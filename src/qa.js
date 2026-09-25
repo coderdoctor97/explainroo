@@ -1,0 +1,144 @@
+// Quality tools for the agent: layout checks, stills, contact sheets and a
+// verification pass over the rendered MP4.
+import fs from 'node:fs';
+import path from 'node:path';
+import { prepare, withEngine } from './pipeline.js';
+import { probe, loudness, ffmpeg } from './ffmpeg.js';
+import { transcribeWords } from './models.js';
+import { readWav } from './wav.js';
+import { alignWords } from './align.js';
+
+export async function check(project, { log = () => {}, step = 0.25 } = {}) {
+  const { voices, timeline } = await prepare(project, { log });
+  const issues = [];
+  for (const sc of project.script.scenes) {
+    const v = voices[sc.id];
+    if (v && v.duration && v.matchRate < 0.85) {
+      issues.push({ level: 'warn', scene: sc.id, t: null, message: `the voice check heard only ${Math.round(v.matchRate * 100)}% of the words as written. Unconfirmed: ${v.unmatched.slice(0, 8).join(', ')}. Heard: "${v.transcript.slice(0, 160)}". Fix pronunciation with {shown|spoken}.` });
+    }
+    if (v && v.duration > 40) issues.push({ level: 'hint', scene: sc.id, t: null, message: `the narration runs ${v.duration.toFixed(0)}s; long scenes are easier to follow when split` });
+  }
+  const pageIssues = await withEngine(project, timeline, { scale: 0.5, log }, (page) => page.evaluate((s) => window.explainroo.check(s), step));
+  issues.push(...pageIssues);
+  const order = { error: 0, warn: 1, hint: 2 };
+  issues.sort((a, b) => order[a.level] - order[b.level]);
+  return { issues, duration: timeline.duration, scenes: timeline.scenes.length };
+}
+
+// Specs: "12.5" (seconds into the video), "scene" (end of the scene, when it
+// is fully built), "scene@2.4" (seconds into the scene), "scene@end".
+export function resolveTimes(timeline, specs) {
+  const byId = new Map(timeline.scenes.map((s) => [s.id, s]));
+  const endOf = (sc) => sc.start + Math.max(0, sc.dur - 0.3);
+  if (!specs.length) return timeline.scenes.map((sc) => ({ T: endOf(sc), label: `${sc.id}@end` }));
+  return specs.map((spec) => {
+    if (/^\d+(\.\d+)?$/.test(spec)) {
+      const T = Math.min(Number(spec), timeline.duration - 1 / timeline.fps);
+      return { T, label: `t${T.toFixed(2)}` };
+    }
+    const [id, at] = spec.split('@');
+    const sc = byId.get(id);
+    if (!sc) throw new Error(`no scene "${id}". Scenes: ${[...byId.keys()].join(', ')}`);
+    if (!at || at === 'end') return { T: endOf(sc), label: `${id}@end` };
+    if (at === 'start') return { T: sc.start, label: `${id}@start` };
+    const local = Number(at);
+    if (!Number.isFinite(local)) throw new Error(`"${spec}": use scene@seconds, for example ${id}@1.5`);
+    return { T: sc.start + Math.min(local, sc.dur - 0.01), label: `${id}@${local}` };
+  });
+}
+
+export async function stills(project, specs, { log = () => {}, scale = 1 } = {}) {
+  const { timeline } = await prepare(project, { log });
+  const list = resolveTimes(timeline, specs).map((x) => ({ ...x, path: `out/stills/${x.label.replace(/[^\w@.-]/g, '_')}.png` }));
+  await withEngine(project, timeline, { scale, log }, (page) => page.evaluate((l) => window.explainroo.stills(l), list));
+  return list.map((x) => ({ time: Math.round(x.T * 100) / 100, label: x.label, file: path.join(project.dir, x.path) }));
+}
+
+export async function sheet(project, { scene = null, every = null, cols = null, log = () => {} } = {}) {
+  const { timeline } = await prepare(project, { log });
+  let times = [];
+  let labels = [];
+  let file = 'out/sheet.jpg';
+  if (scene) {
+    const sc = timeline.scenes.find((s) => s.id === scene);
+    if (!sc) throw new Error(`no scene "${scene}". Scenes: ${timeline.scenes.map((s) => s.id).join(', ')}`);
+    const step = every ?? Math.max(0.25, Math.min(1, sc.dur / 16));
+    for (let t = 0; t < sc.dur - 0.01; t += step) {
+      times.push(sc.start + t);
+      labels.push(`${sc.id} ${t.toFixed(2)}s`);
+    }
+    times.push(sc.start + sc.dur - 0.05);
+    labels.push(`${sc.id} end`);
+    file = `out/sheet-${scene}.jpg`;
+  } else {
+    const step = every ?? Math.max(0.5, Math.min(3, timeline.duration / 30));
+    for (let T = 0; T < timeline.duration; T += step) {
+      const sc = [...timeline.scenes].reverse().find((s) => T >= s.start) || timeline.scenes[0];
+      times.push(T);
+      labels.push(`${sc.id} ${(T - sc.start).toFixed(1)}s`);
+    }
+  }
+  const c = cols ?? (times.length > 20 ? 6 : times.length > 9 ? 5 : 4);
+  const thumb = timeline.width >= timeline.height ? 320 : 200;
+  await withEngine(project, timeline, { scale: 0.5, log }, (page) => page.evaluate((o) => window.explainroo.sheet(o), { times, labels, cols: c, thumb, path: file }));
+  return { file: path.join(project.dir, file), frames: times.length };
+}
+
+export async function verify(project, { file = null, log = () => {} } = {}) {
+  const video = path.resolve(file || path.join(project.paths.out, 'video.mp4'));
+  if (!fs.existsSync(video)) throw new Error(`${video} does not exist. Run "explainroo render" first.`);
+  const issues = [];
+  const info = await probe(video);
+  const v = info.streams.find((s) => s.codec_type === 'video');
+  const a = info.streams.find((s) => s.codec_type === 'audio');
+  const duration = Number(info.format.duration);
+  if (!v) issues.push({ level: 'error', message: 'the file has no video stream' });
+  if (!a) issues.push({ level: 'error', message: 'the file has no audio stream' });
+  const loud = a ? await loudness(video) : null;
+  if (loud && loud.integrated !== null && Math.abs(loud.integrated - project.config.loudness) > 1.5) {
+    issues.push({ level: 'warn', message: `loudness is ${loud.integrated} LUFS, target is ${project.config.loudness}` });
+  }
+  if (loud && loud.truePeak !== null && loud.truePeak > -0.5) issues.push({ level: 'warn', message: `true peak ${loud.truePeak} dBFS is close to clipping` });
+
+  const { stderr: bd } = await ffmpeg(['-nostats', '-i', video, '-vf', 'blackdetect=d=0.4:pix_th=0.08', '-an', '-f', 'null', '-']);
+  const blacks = [...bd.matchAll(/black_start:([\d.]+) black_end:([\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  for (const [s, e] of blacks) issues.push({ level: 'warn', message: `black frames from ${s.toFixed(2)}s to ${e.toFixed(2)}s` });
+
+  let silences = [];
+  if (a) {
+    const { stderr: sd } = await ffmpeg(['-nostats', '-i', video, '-af', 'silencedetect=n=-50dB:d=2.5', '-vn', '-f', 'null', '-']);
+    const starts = [...sd.matchAll(/silence_start: ([\d.]+)/g)].map((m) => Number(m[1]));
+    const ends = [...sd.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1]));
+    silences = starts.map((s, i) => [s, ends[i] ?? duration]);
+    for (const [s, e] of silences) issues.push({ level: 'hint', message: `near silence from ${s.toFixed(1)}s to ${e.toFixed(1)}s` });
+  }
+
+  // Can the narration be understood over the music and effects?
+  let speech = null;
+  if (a) {
+    const wav = path.join(project.paths.build, 'verify-16k.wav');
+    await ffmpeg(['-loglevel', 'error', '-i', video, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wav]);
+    const { samples } = readWav(wav);
+    log('checking that the narration is understandable in the final mix');
+    const heard = await transcribeWords(samples, { log });
+    const script = project.script.scenes.flatMap((s) => s.units.filter((u) => u.type === 'word').map((u) => ({ spoken: u.spoken })));
+    const aligned = alignWords(script, heard.words, duration);
+    speech = { matchRate: Math.round(aligned.matchRate * 1000) / 1000, transcript: heard.text };
+    if (aligned.matchRate < 0.85) issues.push({ level: 'warn', message: `only ${Math.round(aligned.matchRate * 100)}% of the script was understood in the final mix; lower music.volume or check pronunciation` });
+    fs.rmSync(wav, { force: true });
+  }
+  const report = {
+    file: video,
+    duration: Math.round(duration * 100) / 100,
+    video: v ? { width: v.width, height: v.height, fps: v.r_frame_rate, codec: v.codec_name } : null,
+    audio: a ? { codec: a.codec_name, sampleRate: Number(a.sample_rate), channels: a.channels } : null,
+    loudness: loud,
+    blackSegments: blacks,
+    silences,
+    speech,
+    issues,
+  };
+  fs.mkdirSync(project.paths.out, { recursive: true });
+  fs.writeFileSync(path.join(project.paths.out, 'report.json'), JSON.stringify(report, null, 2));
+  return report;
+}
