@@ -54,6 +54,7 @@ export function startServer({ projectDir, getState, port = 0 }) {
         return send(res, 200, 'ok');
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'method not allowed');
+      if (p === '/favicon.ico') return send(res, 204, '');
       if (p === '/__state.json') {
         const state = await getState();
         return send(res, 200, JSON.stringify(state), TYPES['.json']);
