@@ -1,0 +1,27 @@
+{
+  "name": "explainroo",
+  "version": "0.1.0",
+  "description": "Narrated explainer videos made by your coding agent. Pure JavaScript, local voice, no API keys.",
+  "type": "module",
+  "bin": {
+    "explainroo": "bin/explainroo.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "author": "Vincent Schmalbach",
+  "repository": "github:vincentsch/explainroo",
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1",
+    "kokoro-js": "1.2.1",
+    "playwright-core": "1.63.0",
+    "roughjs": "4.6.6"
+  },
+  "devDependencies": {
+    "lucide-static": "1.48.0"
+  }
+}
