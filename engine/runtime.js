@@ -162,20 +162,30 @@ export class Engine {
     }
   }
 
-  // Small text in the bottom right corner, on every frame.
+  // Small text in the bottom right corner of every frame, on a soft backing
+  // so it stays readable over any scene.
   drawWatermark(ctx, text) {
     const th = this.theme;
     const m = Math.min(this.W, this.H);
-    const size = Math.round(m * 0.024);
-    const margin = Math.round(m * 0.03);
+    const size = Math.round(m * 0.028);
+    const margin = Math.round(m * 0.028);
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    ctx.font = fontString(th, 'body', size, th.fonts.body.family === 'Inter' ? 600 : undefined);
+    ctx.font = fontString(th, 'body', size, th.fonts.body.family === 'Inter' ? 600 : th.fonts.body.family === 'Kalam' ? 700 : undefined);
     ctx.textAlign = 'right';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = withAlpha(th.ink, th.dark ? 0.6 : 0.5);
-    ctx.fillText(text, this.W - margin, this.H - margin);
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width;
+    const padX = size * 0.6;
+    const h = size * 1.6;
+    const x = this.W - margin;
+    const y = this.H - margin - h / 2;
+    ctx.fillStyle = withAlpha(th.bg, 0.72);
+    ctx.beginPath();
+    ctx.roundRect(x - w - padX * 2, y - h / 2, w + padX * 2, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = withAlpha(th.ink, 0.82);
+    ctx.fillText(text, x - padX, y + size * 0.04);
     ctx.restore();
   }
 

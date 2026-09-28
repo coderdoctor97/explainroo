@@ -1,7 +1,7 @@
 // One function per scene in script.md. Each function draws one frame of its
-// scene; s.t is the time in seconds since the scene started. Give elements an
-// `at` time (seconds, a spoken word, or "#mark") and the theme animates them in.
-// Full API: docs/api.md in the explainroo repository.
+// scene, and s.t is the time in seconds since the scene started. Give elements
+// an `at` time (seconds, a spoken word or "#marker") and the look animates
+// them in. The full scene API is in AGENTS.md in the explainroo folder.
 
 export default {
   hook(s) {

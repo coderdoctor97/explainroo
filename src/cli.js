@@ -11,6 +11,7 @@ import { VOICES, loadTTS, loadASR, cacheRoot, ttsDtype, TTS_SAMPLE_RATE } from '
 import { writeWav } from './wav.js';
 import { ffmpegVersion } from './ffmpeg.js';
 import { findChrome } from './browser.js';
+import { generateImage, imageLog, imageSpend, IMAGE_MODELS } from './images.js';
 
 const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 
@@ -28,6 +29,11 @@ Make a video
   render [project]      write out/video.mp4 (--draft, --from s, --to s, --workers n, --out file)
   verify [project]      check the rendered file: loudness, black frames, narration
 
+Images (optional, needs an OpenRouter API key)
+  image [project] <name> "<what to draw>"   save an illustration as assets/<name>.png
+                        (--model best|cheap, --aspect 16:9, --ref assets/a.png,assets/b.png, --no-style)
+  images [project]      list generated images and what they cost
+
 Reference
   voices                list voices; "explainroo say 'text' --voice am_michael" to hear one
   themes                list looks
@@ -35,7 +41,7 @@ Reference
   doctor                check ffmpeg, Chrome and the speech models (--fetch downloads them)
 
 Options: --json for machine-readable output. The project defaults to the current folder.
-Docs: AGENTS.md (workflow for coding agents) and docs/api.md (scene API).`;
+Docs: AGENTS.md (for coding agents) and https://explainroo.com/docs/`;
 
 function parseArgs(argv) {
   const pos = [];
@@ -52,7 +58,7 @@ function parseArgs(argv) {
   }
   return { pos, flags };
 }
-const BOOL = new Set(['json', 'draft', 'force', 'fetch', 'help', 'version', 'quiet', 'open']);
+const BOOL = new Set(['json', 'draft', 'force', 'fetch', 'help', 'version', 'quiet', 'open', 'no-style']);
 
 function num(v, name) {
   if (v === undefined) return undefined;
@@ -133,6 +139,29 @@ export async function main(argv) {
         ].filter(Boolean);
         print(lines.join('\n'), r);
         return r.issues.some((i) => i.level === 'error') ? 1 : 0;
+      }
+      case 'image': {
+        const isProject = pos[0] && fs.existsSync(path.join(pos[0], 'video.json'));
+        const project = loadProject(isProject ? pos.shift() : undefined);
+        const [name, ...rest] = pos;
+        const r = await generateImage(project, {
+          name,
+          prompt: rest.join(' '),
+          model: flags.model,
+          aspect: flags.aspect,
+          refs: flags.ref ? String(flags.ref).split(',').map((x) => x.trim()).filter(Boolean) : [],
+          style: flags['no-style'] ? false : flags.style,
+          log,
+        });
+        print(`${r.file}  ${r.model}  ${r.cost_usd !== null ? '$' + r.cost_usd.toFixed(4) : 'cost unknown'}  (images so far: $${r.total_usd.toFixed(4)})\nOpen the image and check it before you use it.`, r);
+        return 0;
+      }
+      case 'images': {
+        const project = loadProject(pos[0]);
+        const list = imageLog(project);
+        const total = imageSpend(project);
+        print(list.length ? list.map((e) => `${e.time.slice(0, 16)}  ${e.file.padEnd(28)} ${e.model.padEnd(32)} ${e.cost_usd !== null ? '$' + e.cost_usd.toFixed(4) : '?'}`).join('\n') + `\n${list.length} image request(s), $${total.toFixed(4)}` : 'no images generated yet', { images: list, total_usd: total, models: IMAGE_MODELS });
+        return 0;
       }
       case 'voices': {
         print(Object.entries(VOICES).map(([k, v]) => `${k.padEnd(12)} ${v}`).join('\n'), { voices: VOICES });

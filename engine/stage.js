@@ -822,9 +822,11 @@ export class Stage {
     } else if (!h) h = w / ratio;
     else if (!w) w = h * ratio;
     const frame = o.frame ?? 'none';
+    if (!['none', 'browser', 'window', 'phone', 'card'].includes(frame)) throw new SceneError(`image frame must be none, browser, window, phone or card, not "${frame}"`);
     const bar = frame === 'browser' || frame === 'window' ? Math.max(34, h * 0.075) : 0;
-    const fw = frame === 'phone' ? w + 28 : w;
-    const fh = frame === 'phone' ? h + 28 : h + bar;
+    const cardPad = frame === 'card' ? Math.round(Math.min(w, h) * 0.035) + 8 : 0;
+    const fw = frame === 'phone' ? w + 28 : w + cardPad * 2;
+    const fh = frame === 'phone' ? h + 28 : h + bar + cardPad * 2;
     const x = o.x ?? this.cx;
     const y = o.y ?? this.cy;
     this._register(o.id, x, y, fw, fh);
@@ -857,6 +859,8 @@ export class Stage {
         ctx.fillText(o.url, 0, 1);
         ctx.restore();
       }
+    } else if (frame === 'card') {
+      this.pen.draw(ctx, { kind: 'rect', w: fw, h: fh, r: r + cardPad / 2 }, { fill: th.dark ? th.surface : '#ffffff', stroke: th.stroke.rough ? th.ink : 'none', width: th.stroke.width * 0.8, shadow: th.shadow || { color: 'rgba(0,0,0,0.16)', blur: 24, y: 8 }, seed: this._seed('card', o, src), fillStyle: 'solid' }, { stroke: 1, fill: 1 });
     } else if (o.shadow !== false && th.shadow) {
       this.pen.draw(ctx, { kind: 'rect', w, h, r }, { fill: th.surface, stroke: 'none', width: 0, shadow: th.shadow, rough: false }, { stroke: 1, fill: 1 });
     }

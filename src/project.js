@@ -33,7 +33,8 @@ export const DEFAULTS = {
   loudness: -14,
   seed: 1,
   boil: 0,
-  watermark: false,
+  watermark: 'explainroo.com',
+  images: null,
 };
 
 export class ProjectError extends Error {}
@@ -70,6 +71,11 @@ export function normalizeConfig(raw) {
   if (!(cfg.boil >= 0 && cfg.boil <= 12)) fail('boil must be between 0 (off) and 12 redraws per second');
   if (cfg.watermark !== false && !(typeof cfg.watermark === 'string' && cfg.watermark.trim() && cfg.watermark.length <= 40)) {
     fail('watermark must be false or a short text of up to 40 characters, like "example.com"');
+  }
+  if (cfg.images !== null) {
+    if (typeof cfg.images !== 'object' || Array.isArray(cfg.images)) fail('images must be an object like { "model": "best", "style": "..." }');
+    const extra = Object.keys(cfg.images).filter((k) => !['model', 'style'].includes(k));
+    if (extra.length) fail(`images has unknown setting(s): ${extra.join(', ')}. Known: model, style`);
   }
 
   let music = cfg.music;

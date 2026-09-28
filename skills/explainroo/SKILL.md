@@ -1,24 +1,25 @@
 ---
 name: explainroo
-description: Make a narrated explainer video (MP4) from code with explainroo, using a local voice model and no API keys. Use when the user asks for an explainer, walkthrough, launch or tutorial video, an animated diagram with voice-over, or a short for YouTube, Reels or TikTok.
+description: Make a narrated explainer video (MP4) with explainroo, using a voice model on this computer and no API key. Use when the user asks for an explainer, how-to, walkthrough, launch or tutorial video, an animated diagram with a voice-over, or a short for YouTube, Reels or TikTok.
 ---
 
 # Make an explainer video with explainroo
 
-explainroo turns a narration script and a small JavaScript scene file into a
-finished MP4: a local voice reads the script, every word is timed, frames are
-drawn in headless Chrome, and music and sound effects are generated to fit.
+explainroo turns a narration script and a small JavaScript scene file into an
+MP4. A voice model reads the script, every word gets a time, Chrome draws the
+frames, and explainroo adds music and sound effects.
 
-## 1. Find or install explainroo
+## Find or install explainroo
 
-Use the first that works:
+Try these first:
 
 ```bash
-command -v explainroo                                  # installed with npm link
+command -v explainroo
 ls "${EXPLAINROO_HOME:-$HOME/.explainroo}/bin/explainroo.js"
 ```
 
-If neither exists, install it (needs Node.js 20+, ffmpeg and Chrome or Chromium):
+If neither exists, install it. It needs Node.js 20 or newer, ffmpeg, and
+Chrome or Chromium.
 
 ```bash
 git clone https://github.com/vincentsch/explainroo.git "$HOME/.explainroo"
@@ -26,27 +27,21 @@ cd "$HOME/.explainroo" && npm install
 node bin/explainroo.js doctor --fetch
 ```
 
-Below, `explainroo` means either the linked command or
+Below, `explainroo` means the linked command or
 `node "$HOME/.explainroo/bin/explainroo.js"`.
 
-## 2. Read the guide
+## Read AGENTS.md
 
-Read `AGENTS.md` in the explainroo folder before you start, and keep
-`docs/api.md` open while writing scenes. They define the workflow, the quality
-bar and the scene API.
+`AGENTS.md` in the explainroo folder has the steps, the writing rules, the
+settings and the full scene API. Read it before you start.
 
-## 3. Make the video
+## Make the video
 
-Create the project where the user wants it (default: `./video` in the current
-folder):
+Create the project where the user wants it, for example `./video`:
 
 ```bash
 explainroo init video --theme paper --title "..."
 ```
 
-Then follow the workflow from AGENTS.md: write `script.md`, run
-`explainroo voice video`, write `scenes.js`, run `explainroo check video`,
-look at `explainroo still video` and `explainroo sheet video` output, then
-`explainroo render video` and `explainroo verify video`.
-
-Report the path to `video/out/video.mp4`, its length and the verify summary.
+Then follow the steps in AGENTS.md. Tell the user where `video/out/video.mp4`
+is, how long it is, and what `explainroo verify video` said.
