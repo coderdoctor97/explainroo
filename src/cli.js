@@ -41,7 +41,7 @@ Reference
   doctor                check ffmpeg, Chrome and the speech models (--fetch downloads them)
 
 Options: --json for machine-readable output. The project defaults to the current folder.
-Docs: AGENTS.md (for coding agents) and https://explainroo.com/docs/`;
+Docs: AGENTS.md (for coding agents) and https://www.explainroo.com/docs/`;
 
 function parseArgs(argv) {
   const pos = [];

@@ -11,9 +11,18 @@ this computer, and Whisper writes down when each word is spoken. Chrome draws
 the frames in the background, explainroo adds music and sound effects, and
 ffmpeg makes the MP4. No API key is needed unless the user wants AI images.
 
-The full documentation for people is at https://explainroo.com/docs/.
+The full documentation for people is at https://www.explainroo.com/docs/.
 
 ## Before you start
+
+If the user pasted the prompt from the README or explainroo.com and you are
+not in an explainroo folder yet, clone it into the current folder first,
+unless the user named another place:
+
+```bash
+git clone https://github.com/vincentsch/explainroo.git
+cd explainroo
+```
 
 Run this once in the explainroo folder:
 

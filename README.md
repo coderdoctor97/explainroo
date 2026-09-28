@@ -2,6 +2,12 @@
 
 ## Point your AI agent (Claude Code, Codex, Pi and others) at this repo and tell it what video you want.
 
+Copy this into your AI agent and put your topic in place of the brackets:
+
+```text
+Make me a short explainer video about [your topic]. Use explainroo for it: clone https://github.com/vincentsch/explainroo, read its AGENTS.md and follow the steps.
+```
+
 > Right now explainroo works best with Claude Code and Opus 5.5.
 
 [![Watch the explainroo video](docs/media/intro.gif)](https://github.com/vincentsch/explainroo/releases/download/v0.1.0/explainroo-intro.mp4)
@@ -34,8 +40,8 @@ ends up in `videos/<name>/out/video.mp4`.
 
 ## More
 
-- The full documentation and a library of videos made with explainroo:
-  [explainroo.com](https://explainroo.com)
+- The full documentation and more videos made with explainroo:
+  [explainroo.com](https://www.explainroo.com)
 - The source of three example videos: [examples/](examples/)
 
 ## The watermark
