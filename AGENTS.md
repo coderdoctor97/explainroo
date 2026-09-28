@@ -463,9 +463,10 @@ s.pie([{ label: 'Images', value: 55 }, { label: 'Other', value: 45 }], { donut: 
 - `s.number(value, options)` counts up with ticks: `from`, `dur` (1.4),
   `prefix`, `suffix`, `decimals`, `separator`, `group: false`, plus text
   options.
-- `s.bars(data, options)`: `x`, `y`, `w`, `h`, `max`, `stagger`, `growDur`,
-  `values: false`, `prefix`, `suffix`, `format(v)`, `labelSize`,
-  `valueSize`, `fillStyle`.
+- `s.bars(data, options)`: items are `{ label, value, color, at }`, and a bar
+  with its own `at` grows when that word is spoken. Options: `x`, `y`, `w`,
+  `h`, `max`, `stagger`, `growDur`, `values: false`, `prefix`, `suffix`,
+  `format(v)`, `labelSize`, `valueSize`, `fillStyle`.
 - `s.lineChart(values, options)`: `x`, `y`, `w`, `h`, `min`, `max`,
   `labels`, `dots: false`, `area: false`, `color`, `dur`.
 - `s.pie(data, options)`: `x`, `y`, `r`, `donut` (0 to 0.8), `labels: false`,

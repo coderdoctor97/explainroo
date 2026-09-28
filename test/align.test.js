@@ -43,3 +43,23 @@ test('split number tokens with leading dots still match', () => {
   const r = alignWords([{ spoken: 'one dot one dot one dot one' }], heard([['1', 0, 0.3], ['.1', 0.3, 0.6], ['.1', 0.6, 0.9], ['.1', 0.9, 1.2]]), 1.3);
   assert.equal(r.matchRate, 1);
 });
+
+test('spoken amounts match digits, dollars and percent', () => {
+  const r = alignWords(
+    [{ spoken: 'one thousand and fifty dollars.' }, { spoken: 'at' }, { spoken: 'five percent' }, { spoken: 'one thousand one hundred and two dollars fifty' }],
+    heard([['$1,050.', 0, 1], ['at', 1, 1.2], ['5%', 1.2, 1.6], ['$1,102.50', 1.6, 3]]),
+    3,
+  );
+  assert.equal(r.matchRate, 1);
+  assert.ok(r.words.every((w) => w.matched));
+});
+
+test('digits in the script match digits Whisper wrote', () => {
+  const r = alignWords([{ spoken: 'After' }, { spoken: '10' }, { spoken: 'years' }], heard([['After', 0, 0.3], ['10', 0.3, 0.6], ['years', 0.6, 1]]), 1);
+  assert.equal(r.matchRate, 1);
+});
+
+test('number pieces from Whisper are joined', () => {
+  const r = alignWords([{ spoken: 'one thousand dollars' }, { spoken: 'five percent' }], heard([['$1', 0, 0.4], [',000', 0.4, 0.8], ['5', 0.8, 1], ['%', 1, 1.2]]), 1.2);
+  assert.equal(r.matchRate, 1);
+});

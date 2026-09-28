@@ -14,12 +14,43 @@ function canon(w) {
   return NUMBER_WORDS[n] ?? n;
 }
 
-// "example.com" and "1.1.1.1" are spoken as words joined by "dot"; Whisper
-// writes them with dots. Expand both sides the same way.
-function expand(word) {
-  const n = canon(word);
+const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const SCALES = [[1e9, 'billion'], [1e6, 'million'], [1e3, 'thousand']];
+const CURRENCY = { $: 'dollars', '€': 'euros', '£': 'pounds' };
+
+// 1102 -> one thousand one hundred two (without "and"; "and" is optional below).
+export function intWords(n) {
+  if (!Number.isFinite(n) || n < 0 || n >= 1e12) return [String(n)];
+  if (n < 20) return [ONES[n]];
+  if (n < 100) return [TENS[Math.floor(n / 10)], ...(n % 10 ? [ONES[n % 10]] : [])];
+  if (n < 1000) return [ONES[Math.floor(n / 100)], 'hundred', ...(n % 100 ? intWords(n % 100) : [])];
+  for (const [size, name] of SCALES) {
+    if (n >= size) return [...intWords(Math.floor(n / size)), name, ...(n % size ? intWords(n % size) : [])];
+  }
+  return [String(n)];
+}
+
+// Turns one written word into the tokens a voice would say, in canonical form.
+// Whisper writes "$1,050" and "5%" where the voice said "one thousand and
+// fifty dollars" and "five percent", and "example.com" or "1.1.1.1" where it
+// said words joined by "dot". Both sides are expanded the same way.
+export function expand(word) {
+  const raw = String(word).trim().toLowerCase();
   // Whisper splits "1.1.1.1" into "1", ".1", ".1", ".1": a leading dot is a spoken "dot".
-  const lead = /^\s*\.[a-z0-9]/i.test(String(word)) ? ['dot'] : [];
+  const lead = /^\.[a-z0-9]/i.test(raw) ? ['dot'] : [];
+  const n = canon(word);
+  const money = /^([$€£])?(\d+)(?:\.(\d+))?(%)?$/.exec(n);
+  if (money && /\d/.test(raw) && !/^\d+\.\d+\.\d+/.test(n)) {
+    const [, cur, int, dec, pct] = money;
+    const out = [...lead, ...intWords(Number(int))];
+    if (dec !== undefined) {
+      if (cur) out.push(CURRENCY[cur], ...intWords(Number(dec)), 'cents');
+      else out.push('point', ...dec.split('').map((d) => ONES[Number(d)]));
+    } else if (cur) out.push(CURRENCY[cur]);
+    if (pct) out.push('percent');
+    return out.map(canon);
+  }
   if (!/[a-z0-9]\.[a-z0-9]/.test(n)) return n ? [...lead, n] : lead;
   const parts = n.split('.').filter(Boolean).map((p) => NUMBER_WORDS[p] ?? p);
   const out = [...lead];
@@ -29,6 +60,8 @@ function expand(word) {
   });
   return out;
 }
+
+const isNumberToken = (t) => /^\d+$/.test(t) || ['hundred', 'thousand', 'million', 'billion', '100', '1000'].includes(t);
 
 function editDistance(a, b) {
   if (a === b) return 0;
@@ -61,10 +94,29 @@ export function alignWords(words, heard, duration) {
   const tokens = [];
   words.forEach((w, wi) => {
     const parts = String(w.spoken).split(/\s+/).flatMap(expand);
-    (parts.length ? parts : ['']).forEach((p, k) => tokens.push({ wi, norm: p, first: k === 0, last: k === parts.length - 1 || !parts.length }));
+    (parts.length ? parts : ['']).forEach((p, k) => {
+      // "and" inside a spoken number ("one thousand and fifty") is optional.
+      const prev = tokens[tokens.length - 1];
+      const optional = p === 'and' && prev && isNumberToken(prev.norm);
+      tokens.push({ wi, norm: p, first: k === 0, last: k === parts.length - 1 || !parts.length, optional });
+    });
   });
-  const H = [];
+  // Whisper splits numbers into pieces ("$1", ",000" and "5", "%" and "1",
+  // ".1"). Join them back before comparing.
+  const joined = [];
   for (const h of heard) {
+    const prev = joined[joined.length - 1];
+    const t = String(h.text).trim();
+    const glue = prev && ((/^[,.]\d/.test(t) && /\d$/.test(prev.text)) || (/^%/.test(t) && /\d$/.test(prev.text)) || (/^\d/.test(t) && /^[$€£]$/.test(prev.text)));
+    if (glue) {
+      prev.text += t;
+      prev.end = h.end;
+    } else {
+      joined.push({ ...h, text: t });
+    }
+  }
+  const H = [];
+  for (const h of joined) {
     const parts = expand(h.text);
     const step = (h.end - h.start) / Math.max(1, parts.length);
     parts.forEach((p, k) => H.push({ text: p, norm: p, start: h.start + k * step, end: h.start + (k + 1) * step }));
@@ -89,7 +141,7 @@ export function alignWords(words, heard, duration) {
     for (let j = 0; j <= N; j++) {
       const c = cost[i][j];
       if (c >= INF) continue;
-      if (i < T && c + 1 < cost[i + 1][j]) { cost[i + 1][j] = c + 1; move[i + 1][j] = 2; }
+      if (i < T && c + (tokens[i].optional ? 0 : 1) < cost[i + 1][j]) { cost[i + 1][j] = c + (tokens[i].optional ? 0 : 1); move[i + 1][j] = 2; }
       if (j < N && c + 1 < cost[i][j + 1]) { cost[i][j + 1] = c + 1; move[i][j + 1] = 3; }
       if (i < T && j < N) {
         const ok = similar(tokens[i].norm, H[j].norm);
@@ -111,7 +163,7 @@ export function alignWords(words, heard, duration) {
   const spans = words.map(() => null);
   const hits = words.map(() => 0);
   const need = words.map(() => 0);
-  for (const t of tokens) need[t.wi]++;
+  for (const t of tokens) if (!t.optional) need[t.wi]++;
   const add = (wi, s, e, n = 1) => {
     hits[wi] += n;
     const cur = spans[wi];
@@ -170,5 +222,6 @@ export function alignWords(words, heard, duration) {
     if (out[q].start < out[q - 1].start) out[q].start = out[q - 1].start;
     if (out[q].end < out[q].start) out[q].end = out[q].start + 0.05;
   }
-  return { words: out, matchRate: T ? matched / T : 1 };
+  const counted = tokens.filter((t) => !t.optional).length;
+  return { words: out, matchRate: counted ? Math.min(1, matched / counted) : 1 };
 }

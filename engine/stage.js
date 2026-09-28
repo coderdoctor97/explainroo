@@ -1061,7 +1061,9 @@ export class Stage {
     const at = this.time(o.at ?? 0);
     const stagger = o.stagger ?? 0.22;
     this._register(o.id, x, y, w, h);
-    items.forEach((d, i) => this._record('chart', at + 0.3 + i * stagger, 0.8, { sfx: o.sfx }, { label: `bar${i}` }));
+    // Each bar can have its own `at` (seconds, a spoken word or "#marker").
+    const barAt = items.map((d, i) => (d.at !== undefined ? this.time(d.at) : at + 0.3 + i * stagger));
+    items.forEach((d, i) => this._record('chart', barAt[i], 0.8, { sfx: o.sfx }, { label: `bar${i}` }));
     const axisLife = this._life({ at, out: o.out, sfx: null }, 'chart', { enter: 'draw', dur: 0.5 });
     if (!axisLife) return geom(x, y, w, h);
     const alpha = axisLife.q > 0 ? 1 - ease.in(axisLife.q) : 1;
@@ -1069,7 +1071,7 @@ export class Stage {
     ctx.globalAlpha *= alpha;
     this.pen.draw(ctx, { kind: 'poly', points: [[x - w / 2 - 20, base], [x + w / 2 + 20, base]] }, { stroke: colorOf(th, 'ink'), width: th.stroke.width, seed: this._seed('axis', o), single: true }, { stroke: ease.inOut(axisLife.p), fill: 1 });
     items.forEach((d, i) => {
-      const t0 = at + 0.3 + i * stagger;
+      const t0 = barAt[i];
       const g = ease.out(clamp((this.t - t0) / (o.growDur ?? 0.9)));
       const cx = x - w / 2 + slot * i + slot / 2;
       const bh = (d.value / max) * h;

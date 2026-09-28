@@ -60,8 +60,9 @@ export async function generateImage(project, { name, prompt, model, aspect, refs
   const text = `${prompt.trim()}\n\nStyle: ${styleText}\nAspect ratio: ${ratio}.`.trim();
   const content = [{ type: 'text', text }];
   for (const r of refs) {
-    const file = path.resolve(project.dir, r);
-    if (!fs.existsSync(file)) throw new ProjectError(`reference image ${r} does not exist`);
+    // Accept paths relative to the project (assets/a.png) or to the current folder.
+    const file = [path.resolve(project.dir, r), path.resolve(r)].find((f) => fs.existsSync(f));
+    if (!file) throw new ProjectError(`reference image ${r} does not exist (use a path like assets/${path.basename(r)})`);
     content.push({ type: 'image_url', image_url: { url: toDataUrl(file) } });
   }
   const body = {
