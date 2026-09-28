@@ -32,7 +32,7 @@ models download once (about 400 MB).
 | | | |
 |---|---|---|
 | [![explainroo intro](docs/media/intro-poster.jpg)](https://github.com/vincentsch/explainroo/releases/download/v0.1.0/explainroo-intro.mp4) | [![How DNS finds a website](docs/media/dns-poster.jpg)](https://github.com/vincentsch/explainroo/releases/download/v0.1.0/how-dns-works.mp4) | [![git merge vs rebase](docs/media/rebase-poster.jpg)](https://github.com/vincentsch/explainroo/releases/download/v0.1.0/merge-vs-rebase.mp4) |
-| **explainroo in 71 seconds** (paper, 16:9) · [source](examples/explainroo-intro) | **How DNS finds a website** (chalk, 16:9) · [source](examples/how-dns-works) | **git merge vs rebase** (midnight, 9:16 with captions) · [source](examples/merge-vs-rebase) |
+| **explainroo in 86 seconds** (paper, 16:9) · [source](examples/explainroo-intro) | **How DNS finds a website** (chalk, 16:9) · [source](examples/how-dns-works) | **git merge vs rebase** (midnight, 9:16 with captions) · [source](examples/merge-vs-rebase) |
 
 ## Quick start
 
@@ -65,8 +65,9 @@ node bin/explainroo.js render videos/hello       # writes videos/hello/out/video
 
 ```markdown
 ## sync
-So a picture can appear exactly when it is mentioned. [#code] Write one line,
-[#say] say the word database, and there it is.
+This way a picture can appear at the moment the voice mentions it. [#code] The
+agent writes one line of code, [#say] and when the voice says database, the
+database appears.
 ```
 
 `[#code]` marks a moment to animate on. `{SQL|sequel}` shows "SQL" on screen
@@ -77,6 +78,7 @@ word, or a marker:
 
 ```js
 sync(s) {
+  // shortened from examples/explainroo-intro/scenes.js
   s.text('Word cues', { font: 'display', size: 84, y: 160, at: 0.1 });
   s.code("s.icon('database', {\n  at: 'database',\n});", { x: 640, y: 560, at: '#code' });
   s.icon('database', { x: 1450, y: 560, size: 260, color: 'purple', at: 'database' });
@@ -130,7 +132,7 @@ calm?". If a word is mispronounced, write it as {shown|spoken} in script.md.
 Writing `{example.com|example dot com}` in the script fixed it.
 
 `verify` transcribes the final mix to confirm the narration is still
-understandable over the music. All three examples score 99 to 100%.
+understandable over the music. All three examples score 100%.
 
 ## Commands
 
@@ -153,7 +155,7 @@ Every command accepts `--json`.
 ## Speed and limits
 
 On a laptop with an 8-core Intel i9-11950H, everything on the CPU, the
-67-second DNS example renders at 1080p in about 50 seconds once its voice is
+68-second DNS example renders at 1080p in about 50 seconds once its voice is
 generated. Generating the voice takes a little less time than the narration
 lasts, and only changed scenes are generated again.
 

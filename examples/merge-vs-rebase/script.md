@@ -4,19 +4,19 @@
 > video is vertical.
 
 ## hook
-Your branch is behind main. [#two] You can merge, [#or] or you can rebase.
+Your branch is behind main. [#two] You can merge it, [#or] or you can rebase it.
 
 ## merge
-A merge ties the two histories together [#knot] with one extra merge commit.
+A merge adds [#knot] one new commit that joins the two histories.
 
 ## rebase
-A rebase lifts your commits off, [#replay] and replays them on top of main, [#line] in one straight line.
+A rebase takes your commits off your branch [#replay] and adds them again on top of main, [#line] one after the other.
 
 ## hashes
-The replayed commits are new commits, [#new] with new hashes.
+These are new commits, [#new] so they get new hashes.
 
 ## rule
-So here is the rule: [#shared] never rebase a branch that other people already pulled.
+So don't rebase a branch [#shared] that other people have already pulled. [#why] Their copy still has the old commits.
 
 ## outro {hold=1.2}
-Merge keeps history exactly as it happened. [#clean] Rebase keeps it clean.
+A merge keeps the history the way it happened. [#clean] A rebase turns it into a straight line, which is easier to read.

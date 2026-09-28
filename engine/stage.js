@@ -334,6 +334,12 @@ export class Stage {
     });
   }
 
+  // Layout problems found while drawing, reported by `check`.
+  _overflow(message) {
+    const log = this.engine.textLog;
+    if (log) log.push({ scene: this.id, t: this.t, problem: message });
+  }
+
   _autoTextColor(fill, fallback) {
     if (!fill || fill === 'none') return fallback;
     fill = opaque(fill, this.theme.bg);
@@ -1269,6 +1275,14 @@ export class Stage {
     ctx.font = font;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
+    const room = w / 2 - pad * 0.5 - (left + numW);
+    lines.forEach((line, i) => {
+      if (ctx.measureText(line).width > room) this._overflow(`code line ${i + 1} ("${line.trim().slice(0, 40)}") is wider than its window; shorten it, lower size or raise w`);
+    });
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-w / 2, -h / 2, w, h);
+    ctx.clip();
     let budget = reveal === 'type' ? Math.floor((this.t - startText) * cps) : Infinity;
     lines.forEach((line, i) => {
       if (reveal === 'lines' && this.t < startText + i * lineDelay) return;
@@ -1294,6 +1308,7 @@ export class Stage {
       }
       if (reveal === 'type') budget -= 1;
     });
+    ctx.restore();
     this._logText({ text: 'code', x0: -w / 2, y0: -h / 2, x1: w / 2, y1: h / 2, size, fg: C.fg, bg: C.bg, block: true });
     ctx.restore();
     return geom(x, y, w, h);
@@ -1357,6 +1372,17 @@ export class Stage {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     const left = -w / 2 + pad;
+    const promptW = ctx.measureText((o.prompt ?? '$') + ' ').width;
+    for (const it of timed) {
+      for (const part of String(it.cmd ?? it.out ?? '').split('\n')) {
+        const width = ctx.measureText(part).width + (it.cmd !== undefined ? promptW : 0);
+        if (width > w - pad * 2) this._overflow(`terminal line "${part.slice(0, 40)}" is wider than the terminal; shorten it, lower size or raise w`);
+      }
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-w / 2, -h / 2, w, h);
+    ctx.clip();
     let row = 0;
     const top = -h / 2 + barH + pad * 0.8;
     let cursor = null;
@@ -1386,6 +1412,7 @@ export class Stage {
       ctx.globalAlpha *= 0.85;
       ctx.fillRect(cursor.x + 4, cursor.y + size * 0.08, size * 0.55, size * 1.05);
     }
+    ctx.restore();
     this._logText({ text: 'terminal', x0: -w / 2, y0: -h / 2, x1: w / 2, y1: h / 2, size, fg: T.fg, bg: T.bg, block: true });
     ctx.restore();
     return geom(x, y, w, h);

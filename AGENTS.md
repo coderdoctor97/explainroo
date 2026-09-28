@@ -51,6 +51,12 @@ are your eyes and ears.
    - One idea per scene, usually 1 to 3 sentences (4 to 15 seconds).
    - Write for the ear: short sentences, plain words, no parentheses, no
      lists read aloud as "A, B, C, D and E" unless each one appears on screen.
+   - Write the way you would explain it to someone at a table. Say who does
+     what ("Whisper listens to the recording"). Every sentence adds a fact.
+   - Leave out slogans and punchlines ("Just code."), "not X, but Y" twists,
+     colon lists, chains of three short sentences, metaphors, and filler words
+     like "just", "simply", "really" and "exactly". Cut half sentences that
+     repeat what was already said.
    - Put `[#marker]` where a visual should change. Every sentence should
      trigger at least one visual.
    - Use `{shown|spoken}` for anything the voice might misread: acronyms
@@ -122,7 +128,8 @@ are your eyes and ears.
   highlight, a camera move. `check` flags long static stretches.
 - **Screen text summarizes.** Keep on-screen text to a few words (a label,
   a number, a key phrase). Never put the whole narration on screen; turn on
-  captions instead (`"captions": true`).
+  captions instead (`"captions": true`). With captions on, do not also show
+  the sentence the voice is saying.
 - **Few things at once.** At most five or six elements on screen. Clear the
   stage with `out` before building the next idea.
 - **Big and readable.** Titles 80 to 110px, labels 40 to 56px, notes at least
@@ -176,6 +183,7 @@ videos/<slug>/
 | `sentenceGap`, `paragraphGap` | 0.3, 0.55 | pauses in the narration |
 | `loudness` | -14 | target LUFS |
 | `boil` | 0 | redraws per second of hand-drawn lines (0 keeps lines still) |
+| `watermark` | `false` | small text in the bottom right corner of every frame, like `"example.com"` |
 
 Scene attributes in `script.md`: `## id {hold=1.5 min=5 lead=0.2 transition=cut}`.
 

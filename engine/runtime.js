@@ -2,11 +2,11 @@
 // and scenes, then exposes frame rendering, checks and the soundtrack.
 import rough from '/vendor/rough.js';
 import { Stage, SceneError } from './stage.js';
-import { getTheme, makeBackground } from './themes.js';
+import { getTheme, makeBackground, fontString } from './themes.js';
 import { Pen } from './pen.js';
 import { drawTransition } from './transitions.js';
 import { buildPhrases, drawCaptions } from './captions.js';
-import { hashStr, mulberry32, suggest, contrast, opaque } from './util.js';
+import { hashStr, mulberry32, suggest, contrast, opaque, withAlpha } from './util.js';
 
 const AUTO_TRANSITION = { paper: 'brush', clean: 'slide', chalk: 'brush', blueprint: 'wipe', midnight: 'zoom' };
 
@@ -156,6 +156,27 @@ export class Engine {
       ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
       drawCaptions(ctx, this.phrases, T, this.theme, this.W, this.H);
     }
+    if (this.config.watermark) {
+      ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+      this.drawWatermark(ctx, this.config.watermark);
+    }
+  }
+
+  // Small text in the bottom right corner, on every frame.
+  drawWatermark(ctx, text) {
+    const th = this.theme;
+    const m = Math.min(this.W, this.H);
+    const size = Math.round(m * 0.024);
+    const margin = Math.round(m * 0.03);
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.font = fontString(th, 'body', size, th.fonts.body.family === 'Inter' ? 600 : undefined);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = withAlpha(th.ink, th.dark ? 0.6 : 0.5);
+    ctx.fillText(text, this.W - margin, this.H - margin);
+    ctx.restore();
   }
 
   // Runs every scene over its duration without keeping pixels, collecting the
@@ -267,7 +288,8 @@ export class Engine {
           once(`err:${sc.id}:${e.message}`, () => add('error', sc.id, t, e.message));
           break;
         }
-        const texts = this.textLog.filter((x) => x.alpha > 0.5);
+        for (const pr of this.textLog.filter((x) => x.problem)) once(`problem:${sc.id}:${pr.problem}`, () => add('error', sc.id, t, pr.problem));
+        const texts = this.textLog.filter((x) => !x.problem && x.alpha > 0.5);
         for (const tx of texts) {
           const label = tx.text.length > 40 ? tx.text.slice(0, 37) + '...' : tx.text;
           if (tx.x0 < -1 || tx.y0 < -1 || tx.x1 > W + 1 || tx.y1 > H + 1) {

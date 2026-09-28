@@ -33,6 +33,7 @@ export const DEFAULTS = {
   loudness: -14,
   seed: 1,
   boil: 0,
+  watermark: false,
 };
 
 export class ProjectError extends Error {}
@@ -67,6 +68,9 @@ export function normalizeConfig(raw) {
   }
   if (!(cfg.loudness <= -8 && cfg.loudness >= -30)) fail('loudness must be between -30 and -8 LUFS');
   if (!(cfg.boil >= 0 && cfg.boil <= 12)) fail('boil must be between 0 (off) and 12 redraws per second');
+  if (cfg.watermark !== false && !(typeof cfg.watermark === 'string' && cfg.watermark.trim() && cfg.watermark.length <= 40)) {
+    fail('watermark must be false or a short text of up to 40 characters, like "example.com"');
+  }
 
   let music = cfg.music;
   if (music === true) music = { style: THEME_MUSIC[cfg.theme] };

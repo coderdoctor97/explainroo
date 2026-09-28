@@ -47,7 +47,7 @@ export default {
 
   question(s) {
     you(s, { at: 0.1 });
-    question(s, { at: '#ask', enter: 'sync' });
+    question(s, { at: '#ask' });
     s.icon('help-circle', { x: 800, y: 560, size: 150, color: 'yellow', at: 'address' });
   },
 
@@ -58,16 +58,15 @@ export default {
     s.box('Operating system cache', { id: 'oc', x: 800, y: 720, icon: 'cpu', w: 400, size: 40, at: '#os', color: 'purple' });
     s.arrow('you', 'bc', { at: s.mark('browser') + 0.1, bend: -0.15 });
     s.arrow('you', 'oc', { at: s.mark('os') + 0.1, bend: 0.15 });
-    s.note('both keep recent answers', { x: 800, y: 880, size: 40, at: 'recent', color: 'yellow' });
   },
 
   resolver(s) {
     question(s, { at: -1 });
     you(s, { at: -1 });
     resolver(s, { at: 'resolver' });
-    s.arrow('you', 'resolver', { at: 'goes' });
-    s.note('your internet provider', { x: P.resolver.x, y: 735, size: 40, at: '#isp' });
-    s.note('or a public one: 1.1.1.1', { x: P.resolver.x, y: 800, size: 40, at: '#public', color: 'yellow' });
+    s.arrow('you', 'resolver', { at: 'asks' });
+    s.note('run by your internet provider', { x: P.resolver.x, y: 735, size: 40, at: '#isp' });
+    s.note('or a public one, like 1.1.1.1', { x: P.resolver.x, y: 800, size: 40, at: '#public', color: 'yellow' });
   },
 
   root(s) {
@@ -76,9 +75,9 @@ export default {
     resolver(s, { at: -1 });
     s.arrow('you', 'resolver', { at: -1 });
     root(s, { at: '#root' });
-    s.arrow('resolver', 'root', { at: 'top', bend: -0.1 });
-    s.note("doesn't know", { x: P.root.x, y: P.root.y + 125, size: 36, at: 'answer' });
-    s.arrow('root', 'resolver', { at: '#tld', bend: 0.8, dashed: true, color: 'blue', label: 'ask .com', labelColor: 'blue', labelOffset: 40 });
+    s.arrow('resolver', 'root', { at: 'starts', bend: -0.1 });
+    s.note("doesn't know the address", { x: P.root.x, y: P.root.y + 125, size: 36, at: 'address' });
+    s.arrow('root', 'resolver', { at: '#tld', bend: 0.8, dashed: true, color: 'blue', label: 'ask the .com servers', labelColor: 'blue', labelOffset: 40 });
   },
 
   tld(s) {
@@ -108,11 +107,11 @@ export default {
     s.arrow('resolver', 'you', { at: s.mark('ip') + 0.9, bend: 0.25, color: 'accent', width: 6 });
     s.annotate('q', { type: 'box', color: 'green', at: s.mark('ip') + 1.4 });
     s.icon('check', { x: q.right + 60, y: q.y, size: 70, color: 'green', at: s.mark('ip') + 1.6, enter: 'pop' });
-    s.icon('database', { x: P.resolver.x, y: 780, size: 90, color: 'yellow', at: '#keep', label: 'saved for next time', labelSize: 36 });
+    s.icon('database', { x: P.resolver.x, y: 780, size: 90, color: 'yellow', at: '#keep', label: 'saved for the next request', labelSize: 36 });
   },
 
   outro(s) {
-    s.number(4, { suffix: ' hops', y: 360, at: 0.15 });
+    s.number(4, { suffix: ' questions', y: 360, at: 0.15 });
     const chain = [
       ['laptop', 'you'],
       ['server', 'resolver'],

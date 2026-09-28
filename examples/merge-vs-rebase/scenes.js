@@ -47,7 +47,7 @@ export default {
 
   rebase(s) {
     s.title('rebase', { y: 190, size: 88, at: -1 });
-    history(s, { featureOut: 'lifts', ghost: false });
+    history(s, { featureOut: 'takes', ghost: false });
     history(s, { main: false, ghost: true, at: s.cueEnd('off') - 0.8 });
     const y1 = Y(5);
     const y2 = Y(6);
@@ -56,7 +56,7 @@ export default {
     s.line([[MAIN_X, y1 + R], [MAIN_X, y2 - R]], { color: 'accent', at: s.mark('replay') + 0.8 });
     s.circle({ id: 'F2b', x: MAIN_X, y: y2, r: R, label: "F2'", size: 46, color: 'accent', at: s.mark('replay') + 1.0, enter: 'drop' });
     s.arrow([FEAT_X - 20, Y(2) + 70], [MAIN_X + 90, y1 - 10], { bend: -0.3, dashed: true, color: 'muted', at: s.mark('replay') + 0.1, width: 3 });
-    s.note('one straight line', { x: 420, y: y2, size: 48, color: 'accent', align: 'left', at: '#line' });
+    s.note('a straight line', { x: 420, y: y2, size: 48, color: 'accent', align: 'left', at: '#line' });
   },
 
   hashes(s) {
@@ -70,22 +70,22 @@ export default {
       s.circle({ id: `o${i}`, x: 230, y, r: R, label: o, size: 46, color: 'green', at: -1, opacity: 0.55, dashed: true });
       s.text(oh, { id: `oh${i}`, font: 'mono', x: 340, y, size: 60, align: 'left', color: 'muted', at: -1 });
       s.annotate(`oh${i}`, { type: 'strike', color: 'red', at: s.mark('new') + i * 0.3 });
-      s.circle({ id: `n${i}`, x: 230, y: y + 150, r: R, label: n, size: 46, color: 'accent', at: s.cue('replayed') + i * 0.25 });
+      s.circle({ id: `n${i}`, x: 230, y: y + 150, r: R, label: n, size: 46, color: 'accent', at: s.cue('new') + i * 0.25 });
       s.text(nh, { font: 'mono', x: 340, y: y + 150, size: 60, align: 'left', color: 'accent', at: s.mark('new') + 0.2 + i * 0.3, enter: 'type', dur: 0.5 });
     });
     s.note('same changes, new commits', { y: 1230, size: 48, at: s.cue('commits') });
   },
 
   rule(s) {
-    s.icon('triangle-alert', { y: 470, size: 210, color: 'yellow', at: 'rule', bg: 'circle', bgScale: 1.5 });
+    s.icon('triangle-alert', { y: 470, size: 210, color: 'yellow', at: 0.2, bg: 'circle', bgScale: 1.5 });
     s.text("Don't rebase\n*shared* branches", { font: 'display', size: 84, y: 850, at: '#shared', lineHeight: 1.15, mark: 'yellow' });
     s.icon('users', { y: 1150, size: 120, color: 'muted', at: 'people' });
   },
 
   outro(s) {
-    s.box('merge', { x: 540, y: 520, w: 760, h: 250, icon: 'git-merge', color: 'purple', size: 56, at: 'Merge' });
-    s.note('keeps history as it happened', { y: 710, size: 48, at: 'happened' });
+    s.box('merge', { x: 540, y: 520, w: 760, h: 250, icon: 'git-merge', color: 'purple', size: 56, at: 'merge' });
+    s.note('history as it happened', { y: 710, size: 48, at: 'happened' });
     s.box('rebase', { x: 540, y: 960, w: 760, h: 250, icon: 'git-commit-vertical', color: 'accent', size: 56, at: '#clean' });
-    s.note('keeps it clean', { y: 1150, size: 48, at: s.cue('clean') });
+    s.note('a straight line, easier to read', { y: 1150, size: 48, at: 'easier' });
   },
 };

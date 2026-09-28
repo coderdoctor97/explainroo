@@ -15,18 +15,19 @@ export default {
       s.box(label, { id: `no${i}`, x: xs[i], y: 700, icon, w: 330, at, out: '#code', outDur: 0.3, exit: 'pop', size: 46 });
       s.annotate(`no${i}`, { type: 'cross', color: 'red', at: s.time(at) + 0.55, out: '#code', outDur: 0.3, dur: 0.45 });
     });
-    s.text('Just *code*.', { font: 'display', size: 150, y: 700, at: s.mark('code') + 0.35 });
+    s.icon('code-xml', { x: 560, y: 700, size: 150, color: 'accent', at: s.mark('code') + 0.35 });
+    s.text('drawn with *JavaScript*', { font: 'display', size: 84, x: 660, y: 700, align: 'left', at: s.mark('code') + 0.5 });
   },
 
   files(s) {
     s.title('explainroo', { y: 140, size: 110, at: 0 });
-    s.note('a small open source kit', { y: 235, size: 38, at: 'open' });
+    s.note('free and open source', { y: 235, size: 38, at: 'open' });
     s.icon('bot', { id: 'agent', x: 330, y: 610, size: 190, at: '#writes', label: 'your agent', labelSize: 40 });
-    s.code('## hook\nThis video was made by a coding agent.\n[#code] Just code.', {
-      id: 'script', lang: 'md', title: 'script.md', x: 1170, y: 440, w: 1080, size: 34, at: '#script', reveal: 'lines', lineDelay: 0.25,
+    s.code('## hook\nA coding agent made this video with explainroo.\n[#code] Everything you see is drawn with JavaScript.', {
+      id: 'script', lang: 'md', title: 'script.md', x: 1170, y: 440, w: 1120, size: 31, at: '#script', reveal: 'lines', lineDelay: 0.25,
     });
-    s.code("hook(s) {\n  s.icon('bot', { at: 0.2 });\n  s.text('Just *code*.', { at: '#code' });\n}", {
-      id: 'scenes', lang: 'js', title: 'scenes.js', x: 1170, y: 800, w: 1080, size: 34, at: '#scenes', reveal: 'lines', lineDelay: 0.25,
+    s.code("hook(s) {\n  s.icon('bot', { at: 0 });\n  s.icon('code-xml', { at: '#code' });\n}", {
+      id: 'scenes', lang: 'js', title: 'scenes.js', x: 1170, y: 800, w: 1120, size: 31, at: '#scenes', reveal: 'lines', lineDelay: 0.25,
     });
     s.arrow('agent', 'script', { at: s.mark('script') - 0.2, bend: -0.15 });
     s.arrow('agent', 'scenes', { at: s.mark('scenes') - 0.2, bend: 0.15 });
@@ -44,14 +45,14 @@ export default {
 
     // A real word timeline: the words of the last sentence, placed at the
     // times Whisper measured for them.
-    const from = s.mark('whisper');
+    const from = s.cue('writes');
     const words = s.words.filter((w) => w.start >= from - 0.01);
     const t0 = words[0].start;
     const t1 = words[words.length - 1].end;
     const x0 = 250;
     const x1 = 1670;
     const lineY = 860;
-    s.line([[x0 - 30, lineY], [x1 + 60, lineY]], { color: 'muted', at: from, width: 3 });
+    s.line([[x0 - 30, lineY], [x1 + 60, lineY]], { color: 'muted', at: s.mark('whisper') + 0.4, width: 3 });
     words.forEach((w, i) => {
       const x = x0 + ((w.start - t0) / (t1 - t0)) * (x1 - x0);
       s.line([[x, lineY - 14], [x, lineY + 14]], { color: 'purple', at: w.start, width: 4, sfx: false });
@@ -63,16 +64,16 @@ export default {
   sync(s) {
     s.text('Word cues', { font: 'display', size: 84, y: 160, at: 0.1 });
     s.icon('image', { id: 'pic', x: 700, y: 540, size: 170, color: 'blue', at: 'picture', out: '#code', bg: 'circle' });
-    s.icon('speech', { id: 'said', x: 1220, y: 540, size: 170, color: 'accent', at: 'mentioned', out: '#code', bg: 'circle' });
-    s.arrow('pic', 'said', { head: 'both', dashed: true, label: 'same moment', at: s.cue('mentioned') + 0.25, out: '#code', color: 'muted' });
+    s.icon('speech', { id: 'said', x: 1220, y: 540, size: 170, color: 'accent', at: 'mentions', out: '#code', bg: 'circle' });
+    s.arrow('pic', 'said', { head: 'both', dashed: true, label: 'at the same time', at: s.cue('mentions') + 0.25, out: '#code', color: 'muted' });
     s.code("s.icon('database', {\n  at: 'database',\n});", { x: 640, y: 560, w: 860, size: 44, title: 'scenes.js', at: '#code', reveal: 'type', cps: 34 });
     const db = s.icon('database', { id: 'db', x: 1450, y: 560, size: 260, color: 'purple', at: 'database', enter: 'pop', bg: 'circle', bgScale: 1.45 });
-    s.note('shown the moment it is said', { x: db.x, y: db.bottom + 60, size: 38, at: s.cue('there') });
+    s.note('appears when the voice says it', { x: db.x, y: db.bottom + 60, size: 38, at: 'appears' });
     s.burst({ x: 1450, y: 560, at: 'database', count: 36, power: 900 });
   },
 
   draw(s) {
-    s.icon('app-window', { x: 420, y: 470, size: 300, color: 'ink', at: 0.2, label: 'headless browser', labelSize: 40 });
+    s.icon('app-window', { x: 420, y: 470, size: 300, color: 'ink', at: 0.2, label: 'headless Chrome', labelSize: 40 });
     const looks = [
       ['paper', '#f7f3ea', '#26221d', '#df5a3f'],
       ['clean', '#ffffff', '#111827', '#3b6cf6'],
@@ -94,7 +95,7 @@ export default {
     s.icon('eye-off', { x: 300, y: 340, size: 90, color: 'muted', at: 'watch', out: '#give', exit: 'pop' });
     s.icon('eye', { x: 300, y: 340, size: 100, color: 'accent', at: s.mark('give') + 0.3, enter: 'pop' });
     const x = 830;
-    s.box('Still frames', { id: 'stills', x, y: 300, icon: 'image', w: 400, at: '#stills', color: 'blue' });
+    s.box('Still pictures', { id: 'stills', x, y: 300, icon: 'image', w: 400, at: '#stills', color: 'blue' });
     s.box('Contact sheets', { id: 'sheets', x, y: 540, icon: 'layout-grid', w: 400, at: '#sheets', color: 'green' });
     s.box('A check', { id: 'check', x, y: 780, icon: 'list-checks', w: 400, at: '#check', color: 'red' });
     s.arrow('agent', 'stills', { at: s.mark('stills') - 0.2, bend: -0.12 });
@@ -104,7 +105,7 @@ export default {
       [
         { text: 'cut off text', at: 'cut' },
         { text: 'bad timing', at: 'timing' },
-        { text: 'mumbled words', at: 'mumbled' },
+        { text: 'misread words', at: 'wrong' },
       ],
       { x: 1160, y: 690, size: 44, bullet: 'x', bulletColor: 'red', gap: 18, width: 600 },
     );
