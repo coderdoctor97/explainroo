@@ -91,11 +91,13 @@ clicks and types through them while the voice explains what is happening.
 Tell your agent which product it is and where its code or website is.
 
 <p align="center">
-  <a href="https://www.explainroo.com/videos/">
+  <a href="https://www.explainroo.com/videos/unspar-product-demo/">
     <img src="docs/media/product-demo.webp" alt="A frame from the Unspar product demo: a form with a website field and an open dropdown" width="820">
   </a>
 </p>
 
+[Watch the Unspar demo](https://www.explainroo.com/videos/unspar-product-demo/)
+or the [Vroni demo](https://www.explainroo.com/videos/vroni-product-demo/).
 The files for the Unspar demo are in
 [examples/unspar-demo](examples/unspar-demo).
 
