@@ -195,7 +195,7 @@ export function parseScript(source) {
 // the text between explicit pauses) and is sent to the TTS model on its own,
 // which keeps every request well under the model's context limit and gives
 // exact control over the silence between sentences.
-export function speechChunks(units, { sentenceGap = 0.3, paragraphGap = 0.55 } = {}) {
+export function speechChunks(units, { sentenceGap = 0.3, paragraphGap = 0.55, pace = 1 } = {}) {
   const chunks = [];
   let cur = null;
   let gapBefore = 0;
@@ -206,7 +206,7 @@ export function speechChunks(units, { sentenceGap = 0.3, paragraphGap = 0.55 } =
   units.forEach((u, index) => {
     if (u.type === 'pause') {
       close();
-      gapBefore = u.paragraph ? Math.max(gapBefore, paragraphGap) : gapBefore + u.sec;
+      gapBefore = u.paragraph ? Math.max(gapBefore, paragraphGap / pace) : gapBefore + u.sec / pace;
       return;
     }
     if (u.type !== 'word') return;
@@ -218,7 +218,7 @@ export function speechChunks(units, { sentenceGap = 0.3, paragraphGap = 0.55 } =
     cur.words.push({ unitIndex: index, display: u.display, spoken: u.spoken });
     if (/[.!?…]["'’)\]]*$/.test(u.spoken)) {
       close();
-      gapBefore = sentenceGap;
+      gapBefore = sentenceGap / pace;
     }
   });
   close();

@@ -469,7 +469,7 @@ export function musicPlan(music = {}) {
   const def = STYLES[name];
   const seed = music.seed ?? 1;
   const keyRoot = music.key != null && music.key !== '' ? parseKey(music.key) : KEYS[makeRng(hashSeed('key', name, seed)).pick(def.keys)];
-  const bpm = clamp(Number(music.bpm) || def.bpm, 40, 200);
+  const bpm = clamp((Number(music.bpm) || def.bpm) * (Number(music.tempo) || 1), 40, 200);
   return { style: name, seed, keyRoot, key: KEY_LABELS[keyRoot], bpm, mixDb: def.mixDb || 0 };
 }
 

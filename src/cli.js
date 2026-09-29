@@ -1,7 +1,7 @@
 // explainroo command line.
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadProject, ProjectError, THEMES, MUSIC_STYLES } from './project.js';
+import { loadProject, ProjectError, THEMES, MUSIC_STYLES, FORMATS, resolveSize, normalizeConfig } from './project.js';
 import { ScriptError } from './script.js';
 import { prepare, makeState } from './pipeline.js';
 import { render } from './render.js';
@@ -20,7 +20,7 @@ const HELP = `explainroo ${VERSION}: narrated explainer videos from code
 Usage: explainroo <command> [project] [options]
 
 Make a video
-  init <dir>            create a project (--theme, --size, --voice, --title)
+  init <dir>            create a project (--theme, --size, --pace, --voice, --title)
   voice [project]       generate narration and word timings (cached)
   preview [project]     live preview in your browser, reloads on save (--port)
   still [project] [t…]  PNG stills: "12.5", "scene", "scene@2.4" (default: end of every scene)
@@ -37,6 +37,7 @@ Images (optional, needs an OpenRouter API key)
 Reference
   voices                list voices; "explainroo say 'text' --voice am_michael" to hear one
   themes                list looks
+  formats               list sizes for YouTube, Shorts, TikTok, Reels, Instagram, LinkedIn
   icons <word…>         search the 1,800+ built-in icons
   doctor                check ffmpeg, Chrome and the speech models (--fetch downloads them)
 
@@ -179,6 +180,14 @@ export async function main(argv) {
         print(THEMES.map((t) => `${t.padEnd(10)} ${desc[t]}`).join('\n') + `\n\nmusic styles: ${MUSIC_STYLES.join(', ')}`, { themes: desc, music: MUSIC_STYLES });
         return 0;
       }
+      case 'formats': {
+        const rows = Object.entries(FORMATS).map(([name, f]) => {
+          const safe = f.safe ? `  keeps clear: top ${pct(f.safe.top)}, bottom ${pct(f.safe.bottom)}, left ${pct(f.safe.left)}, right ${pct(f.safe.right)}` : '';
+          return `${name.padEnd(10)} ${`${f.size[0]}x${f.size[1]}`.padEnd(10)} ${f.use}${safe}`;
+        });
+        print(rows.join('\n') + '\n\nAlso: 16:9, 9:16, 1:1, 4:5 or WIDTHxHEIGHT. Set it with "size" in video.json or init --size.', { formats: FORMATS });
+        return 0;
+      }
       case 'icons': return icons(pos, print);
       case 'doctor': return doctor(flags, log, print);
       default:
@@ -198,8 +207,12 @@ export async function main(argv) {
   }
 }
 
+function pct(x) {
+  return `${Math.round(x * 100)}%`;
+}
+
 function init(dir, flags, print) {
-  if (!dir) throw new ProjectError('usage: explainroo init <dir> [--theme paper] [--size 16:9] [--voice af_heart] [--title "..."]');
+  if (!dir) throw new ProjectError('usage: explainroo init <dir> [--theme paper] [--size youtube|tiktok|linkedin|...] [--pace 1.2] [--voice af_heart] [--title "..."]');
   const target = path.resolve(dir);
   if (fs.existsSync(path.join(target, 'video.json'))) throw new ProjectError(`${target} already has a video.json`);
   const theme = flags.theme || 'paper';
@@ -209,7 +222,11 @@ function init(dir, flags, print) {
   const title = flags.title || path.basename(target).replace(/[-_]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
   fs.mkdirSync(path.join(target, 'assets'), { recursive: true });
   const tpl = path.join(ROOT, 'templates', 'starter');
-  const config = { title, theme, size: flags.size || '16:9', voice, music: true, captions: 'auto' };
+  const size = flags.size || '16:9';
+  resolveSize(size);
+  const config = { title, theme, size, voice, music: true, captions: 'auto' };
+  if (flags.pace !== undefined) config.pace = num(flags.pace, 'pace');
+  normalizeConfig(config);
   fs.writeFileSync(path.join(target, 'video.json'), JSON.stringify(config, null, 2) + '\n');
   fs.writeFileSync(path.join(target, 'script.md'), fs.readFileSync(path.join(tpl, 'script.md'), 'utf8').replace('{{title}}', title));
   fs.writeFileSync(path.join(target, 'scenes.js'), fs.readFileSync(path.join(tpl, 'scenes.js'), 'utf8').replace(/\{\{title\}\}/g, title.replace(/'/g, "\\'")));

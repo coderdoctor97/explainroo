@@ -24,8 +24,14 @@ export class Stage {
     this.pen = engine.pen;
     this.W = engine.W;
     this.H = engine.H;
-    this.cx = this.W / 2;
-    this.cy = this.H / 2;
+    // Platform formats (tiktok, reels, shorts...) keep content inside the part
+    // of the frame the app leaves free, so the center moves with it.
+    this.safe = engine.safeArea;
+    this.platform = Boolean(engine.config.safe);
+    this.cx = this.platform ? this.safe.x + this.safe.w / 2 : this.W / 2;
+    this.cy = this.platform ? this.safe.y + this.safe.h / 2 : this.H / 2;
+    // pace > 1 makes every animation, pause and numeric time shorter.
+    this.pace = engine.timeline.pace || 1;
     this.t = t;
     this.T = scene.start + t;
     this.dur = scene.dur;
@@ -41,8 +47,6 @@ export class Stage {
     this.ease = ease;
     this.lerp = lerp;
     this.clamp = clamp;
-    const m = Math.round(Math.min(this.W, this.H) * 0.07);
-    this.safe = { x: m, y: m, w: this.W - 2 * m, h: this.H - 2 * m, left: m, top: m, right: this.W - m, bottom: this.H - m };
     this._ids = new Map();
     this._kindSeq = Object.create(null);
     this._suppress = 0;
@@ -86,7 +90,7 @@ export class Stage {
 
   // Accepts seconds, "#mark" or a spoken word/phrase.
   time(v) {
-    if (typeof v === 'number') return v;
+    if (typeof v === 'number') return v / this.pace;
     if (typeof v === 'string') return v.startsWith('#') ? this.mark(v.slice(1)) : this.cue(v);
     if (v === undefined || v === null) return 0;
     throw new SceneError(`a time must be seconds, a spoken word or "#mark", not ${JSON.stringify(v)}`);
@@ -95,7 +99,7 @@ export class Stage {
   // 0..1 progress of an animation that starts at `at` and lasts `dur`.
   p(at, dur = 0.6, easing = 'inOut') {
     const a = this.time(at);
-    return easeFn(easing)(clamp((this.t - a) / dur));
+    return easeFn(easing)(clamp((this.t - a) / (dur / this.pace)));
   }
 
   since(at) {
@@ -131,14 +135,14 @@ export class Stage {
   // ---------- layout ----------
 
   row(n, o = {}) {
-    const width = o.width ?? this.W * 0.72;
+    const width = o.width ?? this._w(0.72);
     const x = o.x ?? this.cx;
     if (n <= 1) return [x];
     return Array.from({ length: n }, (_, i) => x - width / 2 + (width * i) / (n - 1));
   }
 
   col(n, o = {}) {
-    const height = o.height ?? this.H * 0.56;
+    const height = o.height ?? (this.platform ? this.safe.h * 0.7 : this.H * 0.56);
     const y = o.y ?? this.cy;
     if (n <= 1) return [y];
     return Array.from({ length: n }, (_, i) => y - height / 2 + (height * i) / (n - 1));
@@ -182,13 +186,13 @@ export class Stage {
     const enter = o.enter ?? extra.enter ?? this.theme.enter[kind] ?? this.theme.enter.shape ?? 'fade';
     const at = this.time(o.at ?? 0);
     const out = o.out === undefined ? Infinity : this.time(o.out);
-    const dur = o.dur ?? extra.dur ?? DEFAULT_DUR[enter] ?? 0.6;
+    const dur = (o.dur ?? extra.dur ?? DEFAULT_DUR[enter] ?? 0.6) / this.pace;
     this._record(kind, at, dur, o, extra);
     if (this._suppress > 0) return null;
     if (this.t < at) return null;
     let q = 0;
     if (this.t >= out) {
-      q = clamp((this.t - out) / (o.outDur ?? 0.45));
+      q = clamp((this.t - out) / ((o.outDur ?? 0.45) / this.pace));
       if (q >= 1 || o.exit === 'none') return null;
     }
     return { p: clamp((this.t - at) / dur), q, at, dur, enter, exit: o.exit ?? 'fade', local: this.t - at };
@@ -421,12 +425,22 @@ export class Stage {
     return this._text(str, o, o.kind || 'text');
   }
 
+  // A width of `f` times the frame, never wider than the platform safe area.
+  _w(f) {
+    return this.platform ? Math.min(this.W * f, this.safe.w) : this.W * f;
+  }
+
+  // A height `f` of the way down the frame (or down the safe area).
+  _y(f) {
+    return this.platform ? this.safe.y + this.safe.h * f : this.H * f;
+  }
+
   title(str, o = {}) {
-    return this._text(str, { font: 'display', size: 104, y: this.H * 0.44, maxWidth: this.W * 0.82, lineHeight: 1.12, ...o }, 'title');
+    return this._text(str, { font: 'display', size: 104, y: this._y(0.44), maxWidth: this._w(0.82), lineHeight: 1.12, ...o }, 'title');
   }
 
   subtitle(str, o = {}) {
-    return this._text(str, { font: 'body', size: 46, color: 'muted', y: this.H * 0.6, maxWidth: this.W * 0.7, ...o }, 'text');
+    return this._text(str, { font: 'body', size: 46, color: 'muted', y: this._y(0.6), maxWidth: this._w(0.7), ...o }, 'text');
   }
 
   note(str, o = {}) {
@@ -442,7 +456,7 @@ export class Stage {
     const weight = o.weight ?? (o.bold ? BOLD[role] ?? 700 : undefined);
     const font = fontString(th, role, size, weight);
     const align = o.align ?? 'center';
-    const lay = layoutText(ctx, { str: String(str), font, size, maxWidth: o.maxWidth ?? o.width ?? this.W * 0.8, lineHeight: o.lineHeight ?? 1.24 });
+    const lay = layoutText(ctx, { str: String(str), font, size, maxWidth: o.maxWidth ?? o.width ?? this._w(0.8), lineHeight: o.lineHeight ?? 1.24 });
     const x = o.x ?? this.cx;
     const y = o.y ?? this.cy;
     const left = align === 'left' ? x : align === 'right' ? x - lay.width : x - lay.width / 2;
@@ -817,7 +831,7 @@ export class Stage {
     let w = o.w;
     let h = o.h;
     if (!w && !h) {
-      w = Math.min(this.W * 0.6, img.naturalWidth);
+      w = Math.min(this._w(0.6), img.naturalWidth);
       h = w / ratio;
     } else if (!h) h = w / ratio;
     else if (!w) w = h * ratio;
@@ -958,9 +972,9 @@ export class Stage {
     const th = this.theme;
     const ctx = this.ctx;
     const size = o.size ?? 50;
-    const x = o.x ?? this.W * 0.2;
-    let y = o.y ?? this.H * 0.3;
-    const width = o.width ?? this.W * 0.62;
+    const x = o.x ?? (this.platform ? this.safe.x + this.safe.w * 0.06 : this.W * 0.2);
+    let y = o.y ?? this._y(0.3);
+    const width = o.width ?? this._w(0.62);
     const gap = o.gap ?? size * 0.55;
     const bullet = o.bullet ?? 'dot';
     const indent = size * 1.25;
@@ -1051,8 +1065,8 @@ export class Stage {
     const items = data.map((d, i) => (typeof d === 'number' ? { value: d } : d)).map((d, i) => ({ ...d, color: d.color ?? palette(th, i) }));
     const x = o.x ?? this.cx;
     const y = o.y ?? this.cy;
-    const w = o.w ?? this.W * 0.56;
-    const h = o.h ?? this.H * 0.46;
+    const w = o.w ?? this._w(0.56);
+    const h = o.h ?? (this.platform ? this.safe.h * 0.46 : this.H * 0.46);
     const max = o.max ?? Math.max(...items.map((d) => d.value)) * 1.12;
     const n = items.length;
     const slot = w / n;
@@ -1121,8 +1135,8 @@ export class Stage {
     const ctx = this.ctx;
     const x = o.x ?? this.cx;
     const y = o.y ?? this.cy;
-    const w = o.w ?? this.W * 0.6;
-    const h = o.h ?? this.H * 0.44;
+    const w = o.w ?? this._w(0.6);
+    const h = o.h ?? (this.platform ? this.safe.h * 0.44 : this.H * 0.44);
     const lo = o.min ?? Math.min(0, ...values);
     const hi = o.max ?? Math.max(...values) * 1.1;
     const pts = values.map((v, i) => [x - w / 2 + (w * i) / Math.max(1, values.length - 1), y + h / 2 - ((v - lo) / (hi - lo || 1)) * h]);
@@ -1233,7 +1247,7 @@ export class Stage {
     const charW = ctx.measureText('M').width;
     ctx.restore();
     const numW = o.lineNumbers === false ? 0 : charW * (String(lines.length).length + 2);
-    const w = o.w ?? Math.min(this.W * 0.86, Math.max(...lines.map((l) => l.length)) * charW + numW + pad * 2);
+    const w = o.w ?? Math.min(this._w(0.86), Math.max(...lines.map((l) => l.length)) * charW + numW + pad * 2);
     const h = o.h ?? lines.length * lh + pad * 1.6 + barH;
     const x = o.x ?? this.cx;
     const y = o.y ?? this.cy;
@@ -1330,7 +1344,7 @@ export class Stage {
     const pad = size * 0.9;
     const barH = size * 1.5;
     const items = lines.map((l) => (typeof l === 'string' ? (l.startsWith('$ ') ? { cmd: l.slice(2) } : { out: l }) : l));
-    const w = o.w ?? this.W * 0.62;
+    const w = o.w ?? this._w(0.62);
     const rows = items.reduce((n, it) => n + String(it.cmd ?? it.out ?? '').split('\n').length, 0);
     const h = o.h ?? Math.max(rows, o.rows ?? 0) * lh + barH + pad * 1.6;
     const x = o.x ?? this.cx;

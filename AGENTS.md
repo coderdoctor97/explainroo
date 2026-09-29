@@ -61,7 +61,9 @@ everything you need in one message. Typical reasons to ask:
    Projects go in `videos/`, which git ignores. Pick the look for the
    audience: `paper` (friendly, hand drawn, the default), `clean` (products
    and business), `chalk` (teaching), `blueprint` (engineering), `midnight`
-   (developer tools). Add `--size 9:16` for Shorts, Reels and TikTok.
+   (developer tools). Pick the size for where the video goes (see "Sizes for
+   each platform" below), for example `--size tiktok` or `--size linkedin`.
+   Add `--pace 1.2` when the user wants a quicker video.
 
 3. **Write `script.md`.** The narration comes first and sets the timing for
    everything else. See "How to write the narration" below.
@@ -236,9 +238,48 @@ is not. If anything is wrong, change the prompt and make it again. Keep text
 out of images and put words on screen with `s.text` instead. Use images for
 things icons cannot show, and keep one style through the whole video.
 
+## Sizes for each platform
+
+Set `size` to the place the video goes. `explainroo formats` lists them.
+
+| Size | Pixels | For |
+|---|---|---|
+| `youtube` (or `16:9`) | 1920 x 1080 | YouTube and other wide players |
+| `shorts` | 1080 x 1920 | YouTube Shorts |
+| `tiktok` | 1080 x 1920 | TikTok |
+| `reels` | 1080 x 1920 | Instagram and Facebook Reels |
+| `vertical` | 1080 x 1920 | one file for Shorts, TikTok and Reels |
+| `instagram` | 1080 x 1350 | Instagram and Facebook feed posts |
+| `linkedin` | 1080 x 1350 | the LinkedIn feed |
+| `square` (or `1:1`) | 1080 x 1080 | square posts on X, LinkedIn and Facebook |
+
+`9:16`, `4:5` and `WIDTHxHEIGHT` also work.
+
+Shorts, TikTok and Reels put their own buttons, the account name and the
+post text on top of the video. With `shorts`, `tiktok`, `reels` and
+`vertical`, explainroo keeps out of those spots: `s.safe` is the part the app
+leaves free, `s.cx` and `s.cy` are its center, the captions sit just above the
+app's bottom band, and the watermark moves to the top right corner. `check`
+warns about any text outside that area. Plain `9:16` has no such margins, so
+use it only when the video is not meant for those apps.
+
+Vertical videos have little room. Stack things instead of putting them side
+by side, use fewer words on screen, and place everything from `s.safe`.
+
+## Pace
+
+`pace` makes the whole video quicker or slower. At 1.3 the voice speaks 30%
+faster, and the pauses, the time before and after each scene, the
+transitions and every animation get 30% shorter. Word and marker cues follow
+the voice, and times in seconds in `scenes.js` are shortened too, so a scene
+keeps its rhythm. 1 is the normal pace; 1.15 to 1.3 suits social media and
+viewers who know the topic, above 1.4 gets hard to follow. `speed` changes
+only the voice.
+
 ## The watermark
 
-Every video gets a small "explainroo.com" in the bottom right corner. The
+Every video gets a small "explainroo.com" in the bottom right corner (top
+right on Shorts, TikTok and Reels, where the corner is covered). The
 user can turn it off with `"watermark": false` in `video.json`, or change it
 to their own text. If the user asks about it, tell them it is their choice,
 and that keeping it helps more people find this free project.
@@ -261,10 +302,11 @@ videos/<name>/
 |---|---|---|
 | `title` | from the script | shown in the preview |
 | `theme` | `paper` | `paper`, `clean`, `chalk`, `blueprint`, `midnight` |
-| `size` | `16:9` | `16:9`, `9:16`, `1:1`, `4:5` or `WIDTHxHEIGHT` |
+| `size` | `16:9` | a platform (`youtube`, `shorts`, `tiktok`, `reels`, `vertical`, `instagram`, `linkedin`, `square`), `16:9`, `9:16`, `1:1`, `4:5` or `WIDTHxHEIGHT` |
 | `fps` | 30 | 24, 25, 30, 50 or 60 |
 | `voice` | `af_heart` | see `explainroo voices` |
-| `speed` | 0.9 | voice speed, 0.6 to 1.6 |
+| `speed` | 0.9 | voice speed only, 0.6 to 1.6 |
+| `pace` | 1 | speed of the whole video (voice, pauses, animations), 0.7 to 1.6 |
 | `music` | `true` | `true` (the look's style), `warm`, `upbeat`, `calm`, `tech`, `playful`, `{ "style", "volume" }` or `false` |
 | `sfx` | `true` | sound effects: `true`, `"minimal"` or `false` |
 | `captions` | `"auto"` | text of the narration at the bottom; auto turns it on for vertical and square videos |
@@ -273,7 +315,7 @@ videos/<name>/
 | `sentenceGap`, `paragraphGap` | 0.3, 0.55 | pauses in the narration |
 | `loudness` | -14 | target loudness in LUFS |
 | `boil` | 0 | redraws per second of hand-drawn lines; 0 keeps them still |
-| `watermark` | `"explainroo.com"` | text in the bottom right corner, or `false` |
+| `watermark` | `"explainroo.com"` | small text in a corner, or `false` |
 | `images` | none | `{ "model": "best" or "cheap", "style": "..." }` |
 
 The looks:
@@ -290,7 +332,7 @@ The looks:
 
 | Command | What it does |
 |---|---|
-| `init <dir>` | creates a project (`--theme`, `--size`, `--voice`, `--title`) |
+| `init <dir>` | creates a project (`--theme`, `--size`, `--pace`, `--voice`, `--title`) |
 | `voice [project]` | makes the narration and the word times, cached per scene |
 | `preview [project]` | a live preview in the browser that reloads when you save |
 | `still [project] [times]` | PNG pictures at `12.5`, `scene`, `scene@2.4` or `scene@end` |
@@ -301,7 +343,7 @@ The looks:
 | `image [project] <name> "<prompt>"` | makes an illustration with OpenRouter |
 | `images [project]` | lists the images and what they cost |
 | `voices`, `say "text"` | lists the 28 voices, or makes a sample |
-| `themes`, `icons <word>` | lists the looks, searches the 1,854 icons |
+| `themes`, `formats`, `icons <word>` | lists the looks and the sizes, searches the 1,854 icons |
 | `doctor` | checks the setup (`--fetch` downloads the speech models) |
 
 ## Scene API
@@ -320,8 +362,9 @@ export default {
 };
 ```
 
-The canvas is 1920 x 1080 for 16:9 (1080 x 1920 for 9:16, 1080 x 1080 for
-1:1, 1080 x 1350 for 4:5). Coordinates are pixels from the top left. `x` and
+The canvas is 1920 x 1080 for 16:9 (1080 x 1920 for the vertical sizes,
+1080 x 1080 for square, 1080 x 1350 for `instagram`, `linkedin` and 4:5).
+Coordinates are pixels from the top left. `x` and
 `y` are the center of an element unless the method says otherwise.
 
 ### Time
@@ -336,7 +379,8 @@ The canvas is 1920 x 1080 for 16:9 (1080 x 1920 for 9:16, 1080 x 1080 for
 | `s.cue(word, n = 1)` | when the n-th time a word or phrase is spoken starts |
 | `s.cueEnd(word, n = 1)` | when it ends |
 | `s.mark(name)` | the time of a `[#name]` marker |
-| `s.time(v)` | turns a number, a word or `"#marker"` into seconds |
+| `s.time(v)` | turns a number, a word or `"#marker"` into seconds (numbers are divided by the pace) |
+| `s.pace` | the video's pace (1 is normal) |
 | `s.p(at, dur = 0.6, ease = 'inOut')` | 0 to 1 progress for your own animation |
 | `s.since(at)`, `s.between(a, b)` | seconds since a time, or whether now is between two times |
 | `s.video` | `{ duration, frames, fps, width, height, scenes }` of the whole video |
@@ -353,8 +397,8 @@ Easing names: `linear`, `in`, `out`, `inOut`, `outBack`, `outElastic`,
 
 | Member | Meaning |
 |---|---|
-| `s.W`, `s.H`, `s.cx`, `s.cy` | canvas size and center |
-| `s.safe` | `{ x, y, w, h, left, top, right, bottom }` with a 7% margin |
+| `s.W`, `s.H`, `s.cx`, `s.cy` | canvas size and the center of the safe area |
+| `s.safe` | `{ x, y, w, h, left, top, right, bottom }`: the area for content (a 7% margin, or the part a platform leaves free) |
 | `s.row(n, { width, x })` | n x positions spread over a width |
 | `s.col(n, { height, y })` | n y positions spread over a height |
 | `s.grid(cols, rows, { x, y, w, h, gap })` | cells `{ x, y, w, h }`, row by row |

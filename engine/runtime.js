@@ -7,6 +7,7 @@ import { Pen } from './pen.js';
 import { drawTransition } from './transitions.js';
 import { buildPhrases, drawCaptions } from './captions.js';
 import { hashStr, mulberry32, suggest, contrast, opaque, withAlpha } from './util.js';
+import { layoutAreas } from './layout.js';
 
 const AUTO_TRANSITION = { paper: 'brush', clean: 'slide', chalk: 'brush', blueprint: 'wipe', midnight: 'zoom' };
 
@@ -58,6 +59,10 @@ export class Engine {
     this.scenesModule = scenes;
     this.W = config.width;
     this.H = config.height;
+    const areas = layoutAreas(config, this.W, this.H);
+    this.safeArea = areas.safe;
+    this.captionArea = areas.captions;
+    this.appArea = areas.app || null;
     this.fps = config.fps;
     this.scale = scale;
     this.theme = getTheme(config.theme);
@@ -154,7 +159,7 @@ export class Engine {
     }
     if (this.phrases.length) {
       ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
-      drawCaptions(ctx, this.phrases, T, this.theme, this.W, this.H);
+      drawCaptions(ctx, this.phrases, T, this.theme, this.W, this.H, this.captionArea);
     }
     if (this.config.watermark) {
       ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
@@ -163,7 +168,9 @@ export class Engine {
   }
 
   // Small text in the bottom right corner of every frame, on a soft backing
-  // so it stays readable over any scene.
+  // so it stays readable over any scene. Platform formats cover that corner
+  // with the app's own buttons, so there it sits at the top right of the part
+  // of the frame the app leaves free.
   drawWatermark(ctx, text) {
     const th = this.theme;
     const m = Math.min(this.W, this.H);
@@ -178,8 +185,8 @@ export class Engine {
     const w = ctx.measureText(text).width;
     const padX = size * 0.6;
     const h = size * 1.6;
-    const x = this.W - margin;
-    const y = this.H - margin - h / 2;
+    const x = this.appArea ? this.appArea.right : this.W - margin;
+    const y = this.appArea ? this.appArea.top + h / 2 : this.H - margin - h / 2;
     ctx.fillStyle = withAlpha(th.bg, 0.72);
     ctx.beginPath();
     ctx.roundRect(x - w - padX * 2, y - h / 2, w + padX * 2, h, h / 2);
@@ -304,6 +311,13 @@ export class Engine {
           const label = tx.text.length > 40 ? tx.text.slice(0, 37) + '...' : tx.text;
           if (tx.x0 < -1 || tx.y0 < -1 || tx.x1 > W + 1 || tx.y1 > H + 1) {
             once(`off:${sc.id}:${tx.text}`, () => add('error', sc.id, t, `"${label}" runs off the frame (${Math.round(tx.x0)},${Math.round(tx.y0)} to ${Math.round(tx.x1)},${Math.round(tx.y1)} in a ${W}x${H} frame)`));
+          } else if (this.appArea) {
+            const a = this.appArea;
+            if (tx.x0 < a.left - 2 || tx.y0 < a.top - 2 || tx.x1 > a.right + 2 || tx.y1 > a.bottom + 2) {
+              once(`app:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is outside the ${this.config.format} safe area (${a.left},${a.top} to ${a.right},${a.bottom}), where the app's buttons, name or caption can cover it`));
+            } else if (this.captionArea && tx.y1 > this.safeArea.bottom + 2 && tx.x1 > a.left && tx.x0 < a.right) {
+              once(`cap:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" reaches into the caption band below y=${this.safeArea.bottom}; keep scene content above s.safe.bottom`));
+            }
           } else if (tx.x0 < margin || tx.y0 < margin || tx.x1 > W - margin || tx.y1 > H - margin) {
             once(`edge:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" sits closer than ${margin}px to the edge`));
           }

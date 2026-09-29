@@ -32,7 +32,9 @@ export function buildPhrases(timeline, maxChars) {
   return phrases;
 }
 
-export function drawCaptions(ctx, phrases, T, theme, W, H) {
+// `area` ({ cx, bottom, maxWidth }) places the captions inside a platform's
+// safe area, right above the band the app covers with its own text.
+export function drawCaptions(ctx, phrases, T, theme, W, H, area = null) {
   const ph = phrases.find((p) => T >= p.start - 0.08 && T < p.until);
   if (!ph) return;
   const vertical = H > W;
@@ -44,7 +46,7 @@ export function drawCaptions(ctx, phrases, T, theme, W, H) {
   ctx.textAlign = 'left';
   const space = ctx.measureText(' ').width;
   const widths = ph.words.map((w) => ctx.measureText(w.text).width);
-  const maxLine = W * (vertical ? 0.8 : 0.7);
+  const maxLine = area ? area.maxWidth - size * 1.1 : W * (vertical ? 0.8 : 0.7);
   const lines = [[]];
   let lw = 0;
   ph.words.forEach((w, i) => {
@@ -59,17 +61,18 @@ export function drawCaptions(ctx, phrases, T, theme, W, H) {
   const lh = size * 1.3;
   const boxW = Math.max(...lines.map((l) => l.reduce((a, i, k) => a + widths[i] + (k ? space : 0), 0))) + size * 1.1;
   const boxH = lines.length * lh + size * 0.55;
-  const cy = vertical ? H * 0.74 : H - Math.max(96, H * 0.1) - boxH / 2 + lh / 2;
+  const cx = area ? area.cx : W / 2;
+  const cy = area ? area.bottom - boxH / 2 : vertical ? H * 0.74 : H - Math.max(96, H * 0.1) - boxH / 2 + lh / 2;
   const fadeIn = ease.out(clamp((T - (ph.start - 0.08)) / 0.15));
   const fadeOut = 1 - clamp((T - (ph.until - 0.15)) / 0.15);
   ctx.globalAlpha = Math.min(fadeIn, fadeOut);
   ctx.fillStyle = theme.caption.bg;
   ctx.beginPath();
-  ctx.roundRect(W / 2 - boxW / 2, cy - boxH / 2, boxW, boxH, Math.min(22, boxH / 2));
+  ctx.roundRect(cx - boxW / 2, cy - boxH / 2, boxW, boxH, Math.min(22, boxH / 2));
   ctx.fill();
   lines.forEach((l, li) => {
     const total = l.reduce((a, i, k) => a + widths[i] + (k ? space : 0), 0);
-    let x = W / 2 - total / 2;
+    let x = cx - total / 2;
     const y = cy - boxH / 2 + size * 0.275 + lh * li + lh / 2;
     for (const i of l) {
       const w = ph.words[i];

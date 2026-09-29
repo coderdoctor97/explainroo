@@ -1,12 +1,14 @@
 // Lays scenes end to end. A scene lasts for its lead-in, its narration and a
 // short hold; scenes without narration last `min` seconds (default 3).
-// All times are snapped to the frame grid.
+// `pace` shortens every lead-in, hold and transition (the voice is already
+// faster). All times are snapped to the frame grid.
 
 export const TRANSITION_SECONDS = 0.7;
 
 export function buildTimeline(project, voices) {
   const { config, script } = project;
   const fps = config.fps;
+  const pace = config.pace || 1;
   const snap = (t) => Math.round(t * fps) / fps;
   const scenes = [];
   const voiceSpans = [];
@@ -14,11 +16,11 @@ export function buildTimeline(project, voices) {
   script.scenes.forEach((scene, index) => {
     const v = voices[scene.id] || { duration: 0, words: [], marks: {}, chunks: [] };
     const a = scene.attrs;
-    const lead = v.duration ? (a.lead ?? config.lead) : 0;
+    const lead = v.duration ? (a.lead ?? config.lead) / pace : 0;
     const isLast = index === script.scenes.length - 1;
-    const hold = (a.hold ?? config.hold) + (isLast ? config.end : 0);
-    let dur = v.duration ? lead + v.duration + hold : (a.min ?? 3) + (isLast ? config.end : 0);
-    if (a.min) dur = Math.max(dur, a.min);
+    const hold = ((a.hold ?? config.hold) + (isLast ? config.end : 0)) / pace;
+    let dur = v.duration ? lead + v.duration + hold : ((a.min ?? 3) + (isLast ? config.end : 0)) / pace;
+    if (a.min) dur = Math.max(dur, a.min / pace);
     dur = Math.max(snap(dur), 1);
     const start = snap(t);
     const transition = index === 0 ? 'none' : (a.transition || config.transition);
@@ -44,7 +46,8 @@ export function buildTimeline(project, voices) {
     height: config.height,
     duration: snap(t),
     frames: Math.round(snap(t) * fps),
-    transitionSeconds: TRANSITION_SECONDS,
+    transitionSeconds: TRANSITION_SECONDS / pace,
+    pace,
     scenes,
     voiceSpans,
   };

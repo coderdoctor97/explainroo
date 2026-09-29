@@ -20,7 +20,7 @@ function sceneHash(scene, chunks, config) {
       ASR_MODEL,
       dtype: ttsDtype(),
       voice: config.voice,
-      speed: config.speed,
+      speed: config.speed * config.pace,
       chunks: chunks.map((c) => [c.gapBefore, c.text]),
     }))
     .digest('hex')
@@ -48,7 +48,7 @@ export async function synthesize(project, { force = false, log = () => {}, only 
   const result = {};
   const todo = [];
   for (const scene of project.script.scenes) {
-    const chunks = speechChunks(scene.units, { sentenceGap: config.sentenceGap, paragraphGap: config.paragraphGap });
+    const chunks = speechChunks(scene.units, { sentenceGap: config.sentenceGap, paragraphGap: config.paragraphGap, pace: config.pace });
     const hash = sceneHash(scene, chunks, config);
     const cached = readVoice(project, scene.id);
     const hasAudio = !chunks.length || fs.existsSync(voicePaths(project, scene.id).wav);
@@ -102,7 +102,7 @@ async function synthesizeScene(project, scene, chunks, hash, tts, log) {
       pieces.push(new Float32Array(Math.round(gap * sr)));
       cursor += Math.round(gap * sr);
     }
-    const audio = await tts.generate(chunk.text, { voice: config.voice, speed: config.speed });
+    const audio = await tts.generate(chunk.text, { voice: config.voice, speed: config.speed * config.pace });
     const samples = trimSilence(audio.audio, audio.sampling_rate || sr);
     const start = cursor / sr;
     const dur = samples.length / sr;

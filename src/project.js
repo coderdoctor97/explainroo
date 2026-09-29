@@ -14,6 +14,21 @@ export const TRANSITIONS = ['auto', 'fade', 'slide', 'wipe', 'zoom', 'brush', 'c
 export const THEME_MUSIC = { paper: 'warm', clean: 'upbeat', chalk: 'calm', blueprint: 'tech', midnight: 'tech' };
 const ASPECTS = { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350] };
 
+// Named formats for the usual places a video goes. Vertical apps draw their
+// own buttons, names and captions over the video; `safe` is the part of the
+// frame they leave free, as fractions of the frame. The numbers follow the
+// platforms' safe-zone templates as of 2026 and move a little with app updates.
+export const FORMATS = {
+  youtube: { size: [1920, 1080], use: 'YouTube and other wide players' },
+  shorts: { size: [1080, 1920], use: 'YouTube Shorts', safe: { top: 0.15, right: 0.12, bottom: 0.35, left: 0.06 } },
+  tiktok: { size: [1080, 1920], use: 'TikTok', safe: { top: 0.125, right: 0.2, bottom: 0.34, left: 0.11 } },
+  reels: { size: [1080, 1920], use: 'Instagram and Facebook Reels', safe: { top: 0.14, right: 0.11, bottom: 0.35, left: 0.06 } },
+  vertical: { size: [1080, 1920], use: 'one file for Shorts, TikTok and Reels', safe: { top: 0.15, right: 0.2, bottom: 0.35, left: 0.11 } },
+  instagram: { size: [1080, 1350], use: 'Instagram and Facebook feed posts' },
+  linkedin: { size: [1080, 1350], use: 'the LinkedIn feed' },
+  square: { size: [1080, 1080], use: 'square posts on X, LinkedIn and Facebook' },
+};
+
 export const DEFAULTS = {
   title: null,
   theme: 'paper',
@@ -21,6 +36,7 @@ export const DEFAULTS = {
   fps: 30,
   voice: 'af_heart',
   speed: 0.9,
+  pace: 1,
   music: true,
   sfx: true,
   captions: 'auto',
@@ -44,9 +60,10 @@ function fail(msg) {
 }
 
 export function resolveSize(size) {
+  if (FORMATS[size]) return { width: FORMATS[size].size[0], height: FORMATS[size].size[1], safe: FORMATS[size].safe || null };
   if (ASPECTS[size]) return { width: ASPECTS[size][0], height: ASPECTS[size][1] };
   const m = /^(\d{3,4})x(\d{3,4})$/.exec(String(size));
-  if (!m) fail(`size must be one of ${Object.keys(ASPECTS).join(', ')} or WIDTHxHEIGHT, not "${size}"`);
+  if (!m) fail(`size must be a format (${Object.keys(FORMATS).join(', ')}), a ratio (${Object.keys(ASPECTS).join(', ')}) or WIDTHxHEIGHT, not "${size}"`);
   const width = Number(m[1]);
   const height = Number(m[2]);
   if (width % 2 || height % 2) fail('size width and height must be even numbers (H.264 needs that)');
@@ -60,6 +77,8 @@ export function normalizeConfig(raw) {
   if (!THEMES.includes(cfg.theme)) fail(`theme must be one of ${THEMES.join(', ')}, not "${cfg.theme}"`);
   if (!VOICES[cfg.voice]) fail(`voice "${cfg.voice}" does not exist. Run "explainroo voices" for the list.`);
   if (!(cfg.speed >= 0.6 && cfg.speed <= 1.6)) fail('speed must be between 0.6 and 1.6');
+  if (!(cfg.pace >= 0.7 && cfg.pace <= 1.6)) fail('pace must be between 0.7 and 1.6 (1 is normal, 1.3 is 30% faster)');
+  if (cfg.speed * cfg.pace > 1.8) fail(`speed ${cfg.speed} times pace ${cfg.pace} makes the voice too fast; keep speed x pace at 1.8 or below`);
   if (![24, 25, 30, 50, 60].includes(cfg.fps)) fail('fps must be 24, 25, 30, 50 or 60');
   if (!TRANSITIONS.includes(cfg.transition)) fail(`transition must be one of ${TRANSITIONS.join(', ')}`);
   if (![true, false, 'minimal'].includes(cfg.sfx)) fail('sfx must be true, false or "minimal"');
@@ -82,15 +101,18 @@ export function normalizeConfig(raw) {
   if (music === true) music = { style: THEME_MUSIC[cfg.theme] };
   else if (typeof music === 'string') music = { style: music };
   if (music) {
-    music = { volume: 0.5, seed: cfg.seed, ...music };
+    // A faster pace plays the music a little faster too.
+    music = { volume: 0.5, seed: cfg.seed, tempo: Math.sqrt(cfg.pace), ...music };
     if (!MUSIC_STYLES.includes(music.style)) fail(`music style must be one of ${MUSIC_STYLES.join(', ')}, not "${music.style}"`);
     if (!(music.volume >= 0 && music.volume <= 1)) fail('music.volume must be between 0 and 1');
   }
   cfg.music = music || null;
 
-  const { width, height } = resolveSize(cfg.size);
+  const { width, height, safe } = resolveSize(cfg.size);
   cfg.width = width;
   cfg.height = height;
+  cfg.format = FORMATS[cfg.size] ? cfg.size : null;
+  cfg.safe = safe || null;
   if (cfg.captions === 'auto') cfg.captions = height >= width;
   return cfg;
 }
