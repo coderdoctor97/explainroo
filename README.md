@@ -83,7 +83,7 @@ agent is a separate service with its own terms and costs. For how-to topics
 the agent can also make illustrations with an AI image model through
 OpenRouter. That is optional, and you pay per image.
 
-## Looks, sizes and pace
+## Looks
 
 There are five looks: paper, clean, chalk, blueprint and midnight. These are
 frames from example videos, one in each look. The same video works in any of
@@ -95,6 +95,8 @@ them.
     <img src="docs/media/looks-light.webp" alt="Frames from five example videos, one in each look: paper, clean, chalk, blueprint and midnight" width="820">
   </picture>
 </p>
+
+## Sizes
 
 Each video gets the size of the place it goes. There are sizes for YouTube,
 YouTube Shorts, TikTok, Instagram Reels, Instagram and LinkedIn feed posts,
@@ -108,10 +110,15 @@ from the buttons the app puts on top of the video.
   </picture>
 </p>
 
-- **Pace.** Set `pace` to 1.2 and the whole video gets 20% quicker. That
-  includes the voice, the pauses and each animation.
-- **Captions.** They light up word by word. You get them for vertical, 4:5
-  and square videos.
+Vertical, 4:5 and square videos also get captions that light up word by word,
+because many people watch those with the sound off.
+
+## Pace
+
+Pace makes the whole video quicker or slower. Set `"pace": 1.2` in the
+video's `video.json` and everything gets 20% quicker: the voice, the pauses
+and each animation. The music speeds up a little too. Pace goes from 0.7 to
+1.6, and 1 is normal.
 
 ## Install it yourself
 
