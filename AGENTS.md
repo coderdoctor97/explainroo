@@ -629,6 +629,12 @@ font roles are `display`, `body`, `hand` and `mono`.
 - A cue word that is spoken twice. `at: 'writes'` means the first time. Use
   `s.cue('writes', 2)` or a `[#marker]` for a later one. `check` lists such
   words as hints.
+- Apostrophes in cue words. Cues ignore punctuation, so "visitor's" is heard
+  as "visitors". `at: 'visitor'` then waits for the next plain "visitor".
+  Use a `[#marker]` there.
+- Elements inside `s.group`. Each one makes its sound at its own `at`, even
+  while the group is still hidden. Give them the group's `at`, or
+  `sfx: false`.
 - Words that sound like other words. The speech check hears "won" as "one"
   and "plain" as "plane", and `{shown|spoken}` cannot fix that. Reword the
   sentence. For acronyms that are spelled out letter by letter, write
