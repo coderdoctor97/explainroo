@@ -31,8 +31,8 @@ export default {
   hook(s) {
     s.title('merge or *rebase*?', { y: 190, size: 88, at: 0 });
     history(s, { at: 'branch' });
-    s.icon('git-merge', { x: 300, y: 1210, size: 120, color: 'purple', at: '#two', label: 'merge', labelSize: 48 });
-    s.icon('git-commit-vertical', { x: 780, y: 1210, size: 120, color: 'accent', at: '#or', label: 'rebase', labelSize: 48 });
+    s.icon('git-merge', { x: 300, y: 1150, size: 120, color: 'purple', at: '#two', label: 'merge', labelSize: 48 });
+    s.icon('git-commit-vertical', { x: 780, y: 1150, size: 120, color: 'accent', at: '#or', label: 'rebase', labelSize: 48 });
   },
 
   merge(s) {
