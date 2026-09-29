@@ -85,16 +85,29 @@ OpenRouter. That is optional, and you pay per image.
 
 ## Looks, sizes and pace
 
+There are five looks: paper, clean, chalk, blueprint and midnight. These are
+frames from example videos, one in each look. The same video works in any of
+them.
+
 <p align="center">
-  <img src="docs/media/looks.jpg" alt="The same diagram in the paper, clean, chalk, blueprint and midnight looks" width="720">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/looks-dark.webp">
+    <img src="docs/media/looks-light.webp" alt="Frames from five example videos, one in each look: paper, clean, chalk, blueprint and midnight" width="820">
+  </picture>
 </p>
 
-- **Five looks.** Paper, clean, chalk, blueprint and midnight. The same video
-  works in each of them.
-- **Sizes.** There is a size for YouTube, YouTube Shorts, TikTok, Instagram
-  Reels, Instagram and LinkedIn feed posts, and a square one. On Shorts,
-  TikTok and Reels, explainroo keeps the text away from the buttons the app
-  puts on top of the video.
+Each video gets the size of the place it goes. There are sizes for YouTube,
+YouTube Shorts, TikTok, Instagram Reels, Instagram and LinkedIn feed posts,
+and a square one. On Shorts, TikTok and Reels, explainroo keeps the text away
+from the buttons the app puts on top of the video.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/sizes-dark.webp">
+    <img src="docs/media/sizes-light.webp" alt="Frames from example videos in four sizes: YouTube 16:9, TikTok 9:16, LinkedIn 4:5 and square" width="820">
+  </picture>
+</p>
+
 - **Pace.** Set `pace` to 1.2 and the whole video gets 20% quicker. That
   includes the voice, the pauses and each animation.
 - **Captions.** They light up word by word. You get them for vertical, 4:5
