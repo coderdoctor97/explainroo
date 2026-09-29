@@ -29,7 +29,21 @@ test('platform safe area keeps content above the captions and clear of the butto
   assert.equal(safe.right, 1080 - Math.round(1080 * FORMATS.tiktok.safe.right));
   const plain = layoutAreas(normalizeConfig({ size: '16:9' }), 1920, 1080);
   assert.equal(plain.captions, null);
+  assert.equal(plain.band, null);
   assert.equal(plain.safe.left, Math.round(1080 * 0.07));
+});
+
+test('captions on feed sizes sit at the bottom, clear of the watermark and the content area', () => {
+  for (const size of ['linkedin', 'square', 'instagram']) {
+    const cfg = normalizeConfig({ size });
+    const { safe, band } = layoutAreas(cfg, cfg.width, cfg.height);
+    const wm = Math.round(Math.min(cfg.width, cfg.height) * 0.028);
+    assert.ok(band, size);
+    assert.ok(band.bottom <= cfg.height - wm - Math.round(wm * 1.6), `${size}: captions reach the watermark`);
+    assert.ok(safe.bottom < band.top, `${size}: content area overlaps the captions`);
+  }
+  const noCaptions = normalizeConfig({ size: 'linkedin', captions: false });
+  assert.equal(layoutAreas(noCaptions, 1080, 1350).safe.bottom, 1350 - Math.round(1080 * 0.07));
 });
 
 test('pace must stay in range and must not make the voice too fast', () => {

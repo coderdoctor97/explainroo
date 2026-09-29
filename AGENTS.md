@@ -265,16 +265,35 @@ use it only when the video is not meant for those apps.
 
 Vertical videos have little room. Stack things instead of putting them side
 by side, use fewer words on screen, and place everything from `s.safe`.
+`explainroo formats` prints the content area of each size in pixels, for
+example 745 x 746 on TikTok.
+
+### Where the captions sit
+
+Captions are on by default for vertical, 4:5 and square videos. On Shorts,
+TikTok and Reels they sit just above the app's bottom band. On 4:5, square and
+wide videos they sit at the bottom, above the watermark. On a plain `9:16`
+video they sit about a quarter of the way up. In every case `s.safe` ends
+above them, so anything placed inside `s.safe` stays clear, and `check` warns
+about text in the caption band. Do not put the same sentence on screen as
+text while the captions show it.
+
+The first frame is often the cover picture on social apps. When the first
+elements draw themselves in, frame one is empty; give the title
+`enter: 'none'` or `at: 0` with a quick look, or pick the cover in the app.
 
 ## Pace
 
 `pace` makes the whole video quicker or slower. At 1.3 the voice speaks 30%
 faster, and the pauses, the time before and after each scene, the
 transitions and every animation get 30% shorter. Word and marker cues follow
-the voice, and times in seconds in `scenes.js` are shortened too, so a scene
-keeps its rhythm. 1 is the normal pace; 1.15 to 1.3 suits social media and
-viewers who know the topic, above 1.4 gets hard to follow. `speed` changes
-only the voice.
+the voice, so tie pictures to words and the rhythm stays right at any pace.
+Times in seconds are real seconds of the scene, like `s.t` and `s.cue()`, so
+`at: s.cue('word') + 0.3` means 0.3 seconds after the word at any pace. A
+fixed time like `at: 4` does not move with the pace, which is one more reason
+to use cues. 1 is the normal pace; 1.15 to 1.3 suits social media and viewers
+who know the topic, above 1.4 gets hard to follow. `speed` changes only the
+voice.
 
 ## The watermark
 
@@ -379,7 +398,7 @@ Coordinates are pixels from the top left. `x` and
 | `s.cue(word, n = 1)` | when the n-th time a word or phrase is spoken starts |
 | `s.cueEnd(word, n = 1)` | when it ends |
 | `s.mark(name)` | the time of a `[#name]` marker |
-| `s.time(v)` | turns a number, a word or `"#marker"` into seconds (numbers are divided by the pace) |
+| `s.time(v)` | turns a number, a word or `"#marker"` into seconds |
 | `s.pace` | the video's pace (1 is normal) |
 | `s.p(at, dur = 0.6, ease = 'inOut')` | 0 to 1 progress for your own animation |
 | `s.since(at)`, `s.between(a, b)` | seconds since a time, or whether now is between two times |
@@ -414,7 +433,8 @@ place the next thing below or beside them.
 | `at`, `out` | when it appears and when it leaves |
 | `enter` | `draw`, `write`, `type`, `words`, `sync`, `pop`, `rise`, `fade`, `zoom`, `drop`, `slide-left`, `slide-right`, `slide-up`, `slide-down`, `none` |
 | `exit` | `fade`, `pop`, `rise`, `drop`, `slide-left`, `slide-right`, `none` |
-| `dur` | length of the entrance in seconds |
+| `dur` | length of the entrance in seconds (shortened by the pace) |
+| `outDur` | length of the exit in seconds (0.45) |
 | `id` | a name for arrows, `annotate` and `s.get` |
 | `color` | a color name (`blue`, `accent`, `ink`, `muted`, ...) or any CSS color |
 | `opacity`, `scale`, `rotate` | extra changes, `rotate` in degrees |
@@ -464,7 +484,8 @@ takes the same options.
 `s.arrow(from, to, options)`: `from` and `to` are `[x, y]`, `{ x, y }` or the
 `id` of an element drawn earlier, and then the arrow stops at its edge.
 Options: `bend` (about -1 to 1), `head` (`end`, `start`, `both`, `none`),
-`label`, `labelSize`, `labelColor`, `labelOffset`, `gap`, `dashed`, `width`,
+`label`, `labelSize`, `labelColor`, `labelFont` (the handwritten font by
+default; `'body'` suits `clean`), `labelOffset`, `gap`, `dashed`, `width`,
 `headSize`. `s.connect` is the same.
 
 ### Icons and images
@@ -479,7 +500,7 @@ s.image('assets/cables.png', { w: 1000, frame: 'card', at: 'cables', kenburns: t
 The 1,854 icons come from Lucide. Search with `explainroo icons <word>`; old
 Lucide names work too. Icon options: `size` (120), `color`, `weight` (2),
 `bg` (`true`, `'circle'`, `'square'` or a color), `bgScale`, `label`,
-`labelSize`.
+`labelSize`, `labelColor`, `labelFont`.
 
 `s.image(src, options)` draws a file from `assets/`: `w` and/or `h` (the
 image keeps its shape), `fit` (`cover` or `contain`), `radius`, `frame`
@@ -590,6 +611,28 @@ roles: `display`, `body`, `hand`, `mono`.
 - Randomness from anything other than `s.rand()`, `s.noise()` or
   `Math.random()` inside the scene function.
 - Text in AI images. Put words on screen with `s.text`.
+- A cue word that is spoken twice. `at: 'writes'` means the first time;
+  use `s.cue('writes', 2)` or a `[#marker]` for a later one. `check` lists
+  such words as hints.
+- Words that sound like other words. The speech check hears "won" as "one"
+  and "plain" as "plane", and `{shown|spoken}` cannot fix that. Reword the
+  sentence. For acronyms spelled out letter by letter, write
+  `{API|A, P, I}`, not `A.P.I.` (the dots read like a web address).
+- Growing a shape by changing `w` or `h` over time in the hand-drawn looks.
+  The outline is drawn fresh every frame and wobbles. Animate `scale` instead.
+- A scene change in the middle of one diagram. The default transition of
+  `clean` slides the whole frame; give scenes that share a diagram
+  `{transition=fade}` or `{transition=cut}`.
+- Arrows from an icon with a label. The `id` of an icon covers the icon, not
+  its label, so an arrow leaving downward crosses the label.
+- Colored text in `paper` and `clean`. Green, orange and red are light
+  enough for shapes but often too light for text; `check` warns about low
+  contrast. Use `ink`, `accent` or a darker hex color for text.
+
+`check` looks at text: text off the frame, too close to the edge (3.5%), too
+small, low contrast (against the page, or the text's own `bg`), on top of
+other text, or under the captions. It does not see shapes, arrows and icons,
+or drawings made with `s.draw`. Look at the stills for those.
 
 ## Working on explainroo itself
 

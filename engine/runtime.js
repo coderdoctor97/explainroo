@@ -62,7 +62,8 @@ export class Engine {
     const areas = layoutAreas(config, this.W, this.H);
     this.safeArea = areas.safe;
     this.captionArea = areas.captions;
-    this.appArea = areas.app || null;
+    this.captionBand = areas.band;
+    this.appArea = areas.app;
     this.fps = config.fps;
     this.scale = scale;
     this.theme = getTheme(config.theme);
@@ -292,6 +293,7 @@ export class Engine {
       reported.add(key);
       fn();
     };
+    this.cueNotes = [];
     for (const sc of this.timeline.scenes) {
       const entrances = [];
       this.recorder = { push: (e) => entrances.push(e) };
@@ -315,11 +317,13 @@ export class Engine {
             const a = this.appArea;
             if (tx.x0 < a.left - 2 || tx.y0 < a.top - 2 || tx.x1 > a.right + 2 || tx.y1 > a.bottom + 2) {
               once(`app:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is outside the ${this.config.format} safe area (${a.left},${a.top} to ${a.right},${a.bottom}), where the app's buttons, name or caption can cover it`));
-            } else if (this.captionArea && tx.y1 > this.safeArea.bottom + 2 && tx.x1 > a.left && tx.x0 < a.right) {
-              once(`cap:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" reaches into the caption band below y=${this.safeArea.bottom}; keep scene content above s.safe.bottom`));
             }
           } else if (tx.x0 < margin || tx.y0 < margin || tx.x1 > W - margin || tx.y1 > H - margin) {
             once(`edge:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" sits closer than ${margin}px to the edge`));
+          }
+          const b = this.captionBand;
+          if (b && tx.y1 > b.top + 2 && tx.y0 < b.bottom - 2 && tx.x1 > b.left && tx.x0 < b.right) {
+            once(`cap:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is in the caption band (y ${Math.round(b.top)} to ${Math.round(b.bottom)}), where captions can cover it; keep content above s.safe.bottom (${Math.round(this.safeArea.bottom)})`));
           }
           if (!tx.block && tx.size < minSize) once(`small:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is ${Math.round(tx.size)}px, hard to read (use at least ${minSize}px)`));
           const bg = opaque(tx.bg || this.theme.bg, this.theme.bg);
@@ -358,6 +362,12 @@ export class Engine {
         }
       }
     }
+    const repeated = new Map();
+    for (const c of this.cueNotes) repeated.set(`${c.scene}|${c.word.toLowerCase()}`, c);
+    for (const c of repeated.values()) {
+      add('hint', c.scene, null, `cue "${c.word}" means the first of the ${c.count} times it is spoken in this scene; if you meant a later one, use s.cue("${c.word}", 2) or a [#marker]`);
+    }
+    this.cueNotes = null;
     return issues;
   }
 }

@@ -30,7 +30,8 @@ export class Stage {
     this.platform = Boolean(engine.config.safe);
     this.cx = this.platform ? this.safe.x + this.safe.w / 2 : this.W / 2;
     this.cy = this.platform ? this.safe.y + this.safe.h / 2 : this.H / 2;
-    // pace > 1 makes every animation, pause and numeric time shorter.
+    // pace > 1 makes animations shorter. Times stay real seconds of the
+    // scene, like s.t and the word cues, so `s.cue('word') + 0.3` keeps working.
     this.pace = engine.timeline.pace || 1;
     this.t = t;
     this.T = scene.start + t;
@@ -70,10 +71,16 @@ export class Stage {
     if (!ws.length) throw new SceneError(`cue("${word}"): scene "${this.id}" has no narration`);
     const norms = ws.map((w) => normWord(w.text));
     let seen = 0;
+    let found = null;
     for (let i = 0; i + want.length <= norms.length; i++) {
       let ok = true;
       for (let k = 0; k < want.length; k++) if (norms[i + k] !== want[k]) { ok = false; break; }
-      if (ok && ++seen === n) return { start: ws[i].start, end: ws[i + want.length - 1].end };
+      if (ok && ++seen === n && !found) found = { start: ws[i].start, end: ws[i + want.length - 1].end };
+    }
+    if (found) {
+      // A word spoken more than once silently means its first time; tell the check.
+      if (seen > 1 && n === 1 && this.engine.cueNotes) this.engine.cueNotes.push({ scene: this.id, word: String(word), count: seen });
+      return found;
     }
     const count = seen ? ` (it is spoken ${seen} time${seen > 1 ? 's' : ''})` : '';
     const hint = suggest(want[0], [...new Set(norms)], 6).join(', ');
@@ -90,7 +97,7 @@ export class Stage {
 
   // Accepts seconds, "#mark" or a spoken word/phrase.
   time(v) {
-    if (typeof v === 'number') return v / this.pace;
+    if (typeof v === 'number') return v;
     if (typeof v === 'string') return v.startsWith('#') ? this.mark(v.slice(1)) : this.cue(v);
     if (v === undefined || v === null) return 0;
     throw new SceneError(`a time must be seconds, a spoken word or "#mark", not ${JSON.stringify(v)}`);

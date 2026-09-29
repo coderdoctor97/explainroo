@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadProject, ProjectError, THEMES, MUSIC_STYLES, FORMATS, resolveSize, normalizeConfig } from './project.js';
+import { layoutAreas } from '../engine/layout.js';
 import { ScriptError } from './script.js';
 import { prepare, makeState } from './pipeline.js';
 import { render } from './render.js';
@@ -181,11 +182,15 @@ export async function main(argv) {
         return 0;
       }
       case 'formats': {
-        const rows = Object.entries(FORMATS).map(([name, f]) => {
-          const safe = f.safe ? `  keeps clear: top ${pct(f.safe.top)}, bottom ${pct(f.safe.bottom)}, left ${pct(f.safe.left)}, right ${pct(f.safe.right)}` : '';
-          return `${name.padEnd(10)} ${`${f.size[0]}x${f.size[1]}`.padEnd(10)} ${f.use}${safe}`;
+        // The free area for content with the defaults (watermark on, captions
+        // as "auto" decides), the same box scenes get as s.safe.
+        const info = Object.entries(FORMATS).map(([name, f]) => {
+          const cfg = normalizeConfig({ size: name });
+          const { safe } = layoutAreas(cfg, cfg.width, cfg.height);
+          return { name, width: f.size[0], height: f.size[1], use: f.use, captions: cfg.captions, content: { x: safe.x, y: safe.y, w: safe.w, h: safe.h } };
         });
-        print(rows.join('\n') + '\n\nAlso: 16:9, 9:16, 1:1, 4:5 or WIDTHxHEIGHT. Set it with "size" in video.json or init --size.', { formats: FORMATS });
+        const rows = info.map((r) => `${r.name.padEnd(10)} ${`${r.width}x${r.height}`.padEnd(10)} ${r.use}\n${''.padEnd(22)}content area ${r.content.w}x${r.content.h} at ${r.content.x},${r.content.y}${r.captions ? ', captions below it' : ''}`);
+        print(rows.join('\n') + '\n\nAlso: 16:9, 9:16, 1:1, 4:5 or WIDTHxHEIGHT. Set it with "size" in video.json or init --size.', { formats: info });
         return 0;
       }
       case 'icons': return icons(pos, print);
@@ -205,10 +210,6 @@ export async function main(argv) {
     if (process.env.EXPLAINROO_DEBUG) process.stderr.write(`${e.stack}\n`);
     return 1;
   }
-}
-
-function pct(x) {
-  return `${Math.round(x * 100)}%`;
 }
 
 function init(dir, flags, print) {
