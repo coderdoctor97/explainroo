@@ -114,18 +114,47 @@ export async function verify(project, { file = null, log = () => {} } = {}) {
     for (const [s, e] of silences) issues.push({ level: 'hint', message: `near silence from ${s.toFixed(1)}s to ${e.toFixed(1)}s` });
   }
 
-  // Can the narration be understood over the music and effects?
+  // Can the narration be understood over the music and effects? Each scene
+  // is transcribed on its own: Whisper sometimes drops a whole 30 second
+  // chunk of a long file ("(bell dings)"), and per scene the report can say
+  // where the voice is hard to follow.
   let speech = null;
   if (a) {
     const wav = path.join(project.paths.build, 'verify-16k.wav');
     await ffmpeg(['-loglevel', 'error', '-i', video, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wav]);
     const { samples } = readWav(wav);
     log('checking that the narration is understandable in the final mix');
-    const heard = await transcribeWords(samples, { log });
-    const script = project.script.scenes.flatMap((s) => s.units.filter((u) => u.type === 'word').map((u) => ({ spoken: u.spoken })));
-    const aligned = alignWords(script, heard.words, duration);
-    speech = { matchRate: Math.round(aligned.matchRate * 1000) / 1000, transcript: heard.text };
-    if (aligned.matchRate < 0.85) issues.push({ level: 'warn', message: `only ${Math.round(aligned.matchRate * 100)}% of the script was understood in the final mix; lower music.volume or check pronunciation` });
+    const tlFile = path.join(project.paths.build, 'timeline.json');
+    const timeline = fs.existsSync(tlFile) ? JSON.parse(fs.readFileSync(tlFile, 'utf8')) : null;
+    const spokenWords = (sc) => sc.units.filter((u) => u.type === 'word').map((u) => ({ spoken: u.spoken }));
+    const byId = new Map(project.script.scenes.map((sc) => [sc.id, sc]));
+    const sameScenes = timeline && timeline.scenes.length === project.script.scenes.length && timeline.scenes.every((t) => byId.has(t.id)) && Math.abs(timeline.duration - duration) < 1;
+    if (sameScenes) {
+      const texts = [];
+      const scenes = [];
+      let total = 0;
+      let matched = 0;
+      for (const t of timeline.scenes) {
+        const words = spokenWords(byId.get(t.id));
+        if (!words.length) continue;
+        const from = Math.max(0, Math.floor(t.start * 16000));
+        const to = Math.min(samples.length, Math.ceil((t.start + t.dur) * 16000));
+        const heard = await transcribeWords(samples.subarray(from, to), { log });
+        texts.push(heard.text);
+        const rate = alignWords(words, heard.words, t.dur).matchRate;
+        scenes.push({ id: t.id, matchRate: Math.round(rate * 1000) / 1000 });
+        total += words.length;
+        matched += rate * words.length;
+        if (rate < 0.8) issues.push({ level: 'warn', message: `scene "${t.id}": only ${Math.round(rate * 100)}% of the narration was understood in the final mix; it heard "${heard.text.slice(0, 120)}"` });
+      }
+      const rate = total ? matched / total : 1;
+      speech = { matchRate: Math.round(rate * 1000) / 1000, transcript: texts.join(' '), scenes };
+    } else {
+      const heard = await transcribeWords(samples, { log });
+      const script = project.script.scenes.flatMap(spokenWords);
+      speech = { matchRate: Math.round(alignWords(script, heard.words, duration).matchRate * 1000) / 1000, transcript: heard.text };
+    }
+    if (speech.matchRate < 0.85) issues.push({ level: 'warn', message: `only ${Math.round(speech.matchRate * 100)}% of the script was understood in the final mix; lower music.volume or check pronunciation` });
     fs.rmSync(wav, { force: true });
   }
   const report = {

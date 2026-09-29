@@ -346,7 +346,7 @@ take seconds, spoken words or `"#marks"`, like everywhere else.
 | `u.pop(at, cx, cy, fn, { sfx })` | pops anything in around a point |
 | `u.wipe(at, { color })` | the accent color spreads out until it fills the frame |
 | `u.cursor(keys, { out })` | the mouse; each key `{ at, x, y }` moves it, `{ at, click: true }` clicks with a sound |
-| `u.press(at)`, `u.typed(text, at, cps)`, `u.count(to, at, dur)` | a button press (0 to 1 and back), text typed so far with typing sounds, a number counting up |
+| `u.press(at)`, `u.typed(text, at, cps, { gain, sfx })`, `u.count(to, at, dur)` | a button press (0 to 1 and back), text typed so far with typing sounds, a number counting up |
 | `u.colors` | `accent`, `accentDark`, `accentTint`, `background`, `ink`, `text`, `muted`, `faint`, `line`, `surface` |
 
 `check` sees the text of `s.ui` too. It reports text that runs off the frame
@@ -354,6 +354,10 @@ take seconds, spoken words or `"#marks"`, like everywhere else.
 overlaps. A dropdown or dialog may cover what is under it. Look at stills at
 the moments the camera is zoomed in, and check the cursor does not hide the
 word it points at.
+
+Many sounds under the voice make it hard to follow, and `verify` then
+understands less of it. Keep long typing quiet (`u.typed(text, at, cps, {
+gain: 0.25 })`) and give each moment one sound, not three.
 
 A blur filter on every frame makes rendering slow. The kit blurs things once
 and reuses them. Do the same if you add your own blur.

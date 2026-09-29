@@ -911,11 +911,12 @@ export class UI {
     return bell((this.s.t - this.at(at)) / (0.26 / this.s.pace));
   }
 
-  // The part of `str` typed by now, starting at `at`, with typing sounds.
-  typed(str, at, cps = 17) {
+  // The part of `str` typed by now, starting at `at`, with typing sounds
+  // (o.gain, or o.sfx: false for none; keep long typing quiet under the voice).
+  typed(str, at, cps = 17, o = {}) {
     const a = this.at(at);
     const dur = str.length / cps / this.s.pace;
-    this.s.sfx('type', a, { dur, gain: 0.55 });
+    if (o.sfx !== false) this.s.sfx('type', a, { dur, gain: o.gain ?? 0.55 });
     return str.slice(0, Math.floor(clamp((this.s.t - a) / dur) * str.length));
   }
 
