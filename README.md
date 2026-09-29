@@ -83,6 +83,22 @@ agent is a separate service with its own terms and costs. For how-to topics
 the agent can also make illustrations with an AI image model through
 OpenRouter. That is optional, and you pay per image.
 
+## Product demos
+
+explainroo can also make launch videos for software. The agent draws the
+app's screens again, in the product's own colors, fonts and wording. A cursor
+clicks and types through them while the voice explains what is happening.
+Tell your agent which product it is and where its code or website is.
+
+<p align="center">
+  <a href="https://www.explainroo.com/videos/">
+    <img src="docs/media/product-demo.webp" alt="A frame from the Unspar product demo: a form with a website field and an open dropdown" width="820">
+  </a>
+</p>
+
+The files for the Unspar demo are in
+[examples/unspar-demo](examples/unspar-demo).
+
 ## Looks
 
 There are five looks: paper, clean, chalk, blueprint and midnight. These are
@@ -139,7 +155,7 @@ node bin/explainroo.js doctor --fetch
 Then start your agent in the `explainroo` folder and ask for a video, for
 example "Make a 60 second video about how HTTPS keeps a password secret."
 Everything the agent needs is in [AGENTS.md](AGENTS.md). The finished video
-ends up in `videos/<name>/out/video.mp4`. The files for three example videos
+ends up in `videos/<name>/out/video.mp4`. The files for the example videos
 are in [examples/](examples/). The full documentation is on
 [explainroo.com](https://www.explainroo.com/docs/).
 

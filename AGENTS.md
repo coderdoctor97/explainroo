@@ -245,6 +245,119 @@ Keep text out of images. Put words on screen with `s.text` instead. Use
 images for things icons cannot show, and keep one style through the whole
 video.
 
+## Product demos
+
+A product demo shows an app being used, like the launch videos software
+companies make. The app's screens are drawn again with `s.ui`: cards, fields,
+buttons, dropdowns, toggles and status pills that look like the real app. A
+cursor moves, clicks and types. The camera zooms in on what the voice talks
+about, and big headlines blur in word by word. See `examples/unspar-demo` for
+a full one.
+
+**Keep it true.** A demo is advertising, so everything in it has to be right.
+
+- Take the wording from the app itself: its templates and language files
+  (for example `lang/en/*.php`, `locales/`, or the components). Copy labels,
+  buttons and status names exactly.
+- Show only features that exist and that customers can use. Leave out admin
+  screens, debug views and plans that are not built yet.
+- Example data must look like example data: `example.com`, a made up project,
+  a made up article title. Never invent customers, numbers or results.
+- Claims in the narration come from the product's live website. Show prices
+  only if the website shows them.
+- Ask the user if the website and the app say different things.
+
+**Set up the brand** in `video.json`. Use the `clean` look.
+
+```json
+{
+  "theme": "clean",
+  "brand": {
+    "accent": "#245cff",
+    "background": "#f8f6f1",
+    "font": "Figtree",
+    "headline": "Instrument Serif",
+    "logo": "assets/logo.svg"
+  },
+  "fonts": [
+    { "family": "Figtree", "src": "assets/fonts/Figtree-600.woff2", "weight": 600 }
+  ]
+}
+```
+
+- `accent` is the main button color. Find it in the app's Tailwind config or
+  CSS. `background` is the color behind the screens, `ink` the color of text
+  drawn right on it.
+- `font` is the app's font. Inter is built in; other fonts go in
+  `assets/fonts/` and in `fonts` (`.woff2`, `.woff`, `.ttf` or `.otf`, one
+  entry per weight, or `"weight": "100 900"` for a variable font, and
+  `"style": "italic"`). Copy the font's license file next to it.
+- `headline` is the font for big headlines. Instrument Serif is built in. If
+  the brand has no serif, use its own font and pass `{ weight: 700,
+  italic: false }` to `u.headline()`.
+- `logo` is the product's logo from the app or website, best as SVG.
+
+**Build a scene** in this order: background, camera, headline, screens,
+cursor last so it stays on top.
+
+```js
+hook(s) {
+  const u = s.ui;
+  u.backdrop();
+  u.floaters();
+  s.camera([{ at: '#site', x: 900, y: 600, zoom: 1.3 }]);
+  u.headline('Tell it what to *write about*', s.W / 2, 178, { size: 84, at: 0.15 });
+  u.panel(410, 270, 1100, 600, { at: 0.3 }, (x, y, w, h) => {
+    u.input(x + 56, y + 296, 560, 62, { label: 'Website URL', value: u.typed('https://example.com', '#site', 24), focus: 1, caret: true });
+    u.button('Get ideas', x + 760, y + 516, 280, 60, { press: u.press('#go') });
+  });
+  u.cursor([
+    { at: 0.5, x: 1500, y: 900 },
+    { at: s.time('#site') - 0.7, x: 740, y: 596 },
+    { at: '#site', click: true },
+  ]);
+}
+```
+
+Draw the headline after `s.camera()`, or the zoomed screens slide under it.
+Time every click to a `[#mark]` in the script, so it happens when the voice
+says it. Move the cursor about 0.7 seconds before the click.
+
+**`s.ui` reference.** Positions are in the frame (1920 wide for 16:9). Times
+take seconds, spoken words or `"#marks"`, like everywhere else.
+
+| Call | What it draws |
+|---|---|
+| `u.backdrop(color?)`, `u.floaters({ alpha, tint })` | the brand background, and faint cards drifting around the edges (`tint: 'white'` on a colored background) |
+| `u.panel(x, y, w, h, { at, out, from, rise, sfx, fill, border, lift }, fn)` | a card that pops in at `at`; `fn(x, y, w, h)` draws inside it |
+| `u.card(x, y, w, h, o)` | a card without an entrance |
+| `u.browser(x, y, w, h, { url, at }, fn)` | a panel with a browser bar; `fn` gets the page area |
+| `u.modal(x, y, w, h, { at, out }, fn)` | a dialog over a dimmed frame |
+| `u.toast(text, { at, out, icon, tone })` | a message that slides up, with a chime |
+| `u.headline(text, x, y, { size, at, out, align, weight, italic })` | big text that blurs in word by word; `*stars*` mark words in the accent color |
+| `u.text(text, x, y, { size, weight, color, align, font, maxW })`, `u.para(text, x, y, maxW, o)`, `u.eyebrow(text, x, y)` | text, wrapped text, and a small uppercase label |
+| `u.button(label, x, y, w, h, { variant, press, icon, loading, color, caps })` | `primary`, `secondary` or `ghost` |
+| `u.input(x, y, w, h, { label, value, placeholder, focus, caret, icon })` | a text field |
+| `u.select(x, y, w, h, { label, value, open, options, hover, selected })` | a dropdown; returns the y of each option row |
+| `u.toggle(x, y, on)`, `u.checkbox(x, y, on)`, `u.radio(x, y, on)` | `on` goes from 0 to 1, so it can animate |
+| `u.chip(label, x, y, { selected })`, `u.chipWidth(label, o, selected)` | option chips; a selected chip grows by its check mark, so leave room |
+| `u.pill(label, x, y, tone, { align, dot, pulse })` | a status badge: `gray`, `blue`, `yellow`, `green`, `red`, `purple` or `accent` |
+| `u.spinner(x, y, r)`, `u.progress(x, y, w, p)`, `u.avatar(x, y, r, initials, { image })`, `u.icon(name, x, y, size, color)`, `u.lines(x, y, w, n)`, `u.logo(x, y, w)` | small parts; `lines` draws grey bars in place of body text |
+| `u.pop(at, cx, cy, fn, { sfx })` | pops anything in around a point |
+| `u.wipe(at, { color })` | the accent color spreads out until it fills the frame |
+| `u.cursor(keys, { out })` | the mouse; each key `{ at, x, y }` moves it, `{ at, click: true }` clicks with a sound |
+| `u.press(at)`, `u.typed(text, at, cps)`, `u.count(to, at, dur)` | a button press (0 to 1 and back), text typed so far with typing sounds, a number counting up |
+| `u.colors` | `accent`, `accentDark`, `accentTint`, `background`, `ink`, `text`, `muted`, `faint`, `line`, `surface` |
+
+`check` sees the text of `s.ui` too. It reports text that runs off the frame
+(not while the camera zooms in), text that is too small and text that
+overlaps. A dropdown or dialog may cover what is under it. Look at stills at
+the moments the camera is zoomed in, and check the cursor does not hide the
+word it points at.
+
+A blur filter on every frame makes rendering slow. The kit blurs things once
+and reuses them. Do the same if you add your own blur.
+
 ## Sizes for each platform
 
 Set `size` to the place the video goes. `explainroo formats` lists the sizes.
@@ -345,6 +458,8 @@ videos/<name>/
 | `boil` | 0 | redraws per second of hand-drawn lines; 0 keeps them still |
 | `watermark` | `"explainroo.com"` | small text in a corner, or `false` |
 | `images` | none | `{ "model": "best" or "cheap", "style": "..." }` |
+| `brand` | none | colors, fonts and logo for `s.ui`, see [Product demos](#product-demos) |
+| `fonts` | none | the video's own font files, see [Product demos](#product-demos) |
 
 The looks:
 
@@ -606,6 +721,9 @@ and the sounds you add yourself.
 to fit the video, and it gets quieter while the voice speaks.
 
 ### Colors and fonts
+
+For product demos in a brand's own colors and fonts, see
+[Product demos](#product-demos).
 
 Color names: `accent`, `ink`, `muted`, `bg`, `surface`, `red`, `orange`,
 `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `gray`. Each look has its

@@ -16,6 +16,9 @@ const TYPES = {
   '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg',
   '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -37,9 +40,9 @@ function safeJoin(base, rel) {
 }
 
 // Project files the engine page may read: scenes.js and the modules it
-// imports, images, audio and video. Never dotfiles such as .env, and no
-// JSON, Markdown or text files, which can hold keys or private notes.
-const PROJECT_FILES = /\.(m?js|png|jpe?g|webp|gif|svg|wav|mp3|mp4)$/i;
+// imports, images, fonts, audio and video. Never dotfiles such as .env, and
+// no JSON, Markdown or text files, which can hold keys or private notes.
+const PROJECT_FILES = /\.(m?js|png|jpe?g|webp|gif|svg|wav|mp3|mp4|woff2?|ttf|otf)$/i;
 
 function allowedName(rel) {
   const parts = rel.split(/[\\/]+/);

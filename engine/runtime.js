@@ -8,6 +8,9 @@ import { drawTransition } from './transitions.js';
 import { buildPhrases, drawCaptions } from './captions.js';
 import { hashStr, mulberry32, suggest, contrast, opaque, withAlpha } from './util.js';
 import { layoutAreas } from './layout.js';
+import { UI } from './ui.js';
+
+Stage.UI = UI;
 
 const AUTO_TRANSITION = { paper: 'brush', clean: 'slide', chalk: 'brush', blueprint: 'wipe', midnight: 'zoom' };
 
@@ -17,17 +20,23 @@ export async function fetchState() {
   return res.json();
 }
 
-async function loadFonts(theme) {
+async function loadFonts(theme, config) {
   const manifest = await (await fetch('/fonts/fonts.json')).json();
   const wanted = new Set(Object.values(theme.fonts).map((f) => f.family));
+  // The UI kit (s.ui) draws app screens in Inter and headlines in Instrument Serif.
   wanted.add('Inter');
+  wanted.add('Instrument Serif');
   const faces = [];
-  for (const f of manifest) {
-    if (!wanted.has(f.family)) continue;
-    const face = new FontFace(f.family, `url(/fonts/${f.file})`, { weight: String(f.weight), unicodeRange: f.unicodeRange, display: 'block' });
+  const add = (family, url, o) => {
+    const face = new FontFace(family, `url(${url})`, { weight: String(o.weight ?? 400), style: o.style ?? 'normal', unicodeRange: o.unicodeRange, display: 'block' });
     document.fonts.add(face);
-    faces.push(face.load());
-  }
+    faces.push(face.load().catch(() => {
+      throw new Error(`font "${family}" from ${url} could not be loaded`);
+    }));
+  };
+  for (const f of manifest) if (wanted.has(f.family)) add(f.family, `/fonts/${f.file}`, f);
+  // A video's own fonts, from "fonts" in video.json.
+  for (const f of config.fonts || []) add(f.family, '/project/' + f.src.split('/').map(encodeURIComponent).join('/'), f);
   await Promise.all(faces);
   // Make sure every weight used by the theme is ready before the first frame.
   await Promise.all(Object.values(theme.fonts).map((f) => document.fonts.load(`${f.weight} 40px "${f.family}"`)));
@@ -287,6 +296,7 @@ export class Engine {
     const { W, H } = this;
     const margin = Math.round(Math.min(W, H) * 0.035);
     const minSize = Math.round(Math.min(W, H) * 0.022);
+    const uiMinSize = Math.round(Math.min(W, H) * 0.015);
     const reported = new Set();
     const once = (key, fn) => {
       if (reported.has(key)) return;
@@ -311,21 +321,25 @@ export class Engine {
         const texts = this.textLog.filter((x) => !x.problem && x.alpha > 0.5);
         for (const tx of texts) {
           const label = tx.text.length > 40 ? tx.text.slice(0, 37) + '...' : tx.text;
+          // UI kit text (s.ui) may leave the frame on purpose while the
+          // camera zooms or pans; app screens use smaller text than slides.
+          const framed = !(tx.ui && tx.zoomed);
           if (tx.x0 < -1 || tx.y0 < -1 || tx.x1 > W + 1 || tx.y1 > H + 1) {
-            once(`off:${sc.id}:${tx.text}`, () => add('error', sc.id, t, `"${label}" runs off the frame (${Math.round(tx.x0)},${Math.round(tx.y0)} to ${Math.round(tx.x1)},${Math.round(tx.y1)} in a ${W}x${H} frame)`));
+            if (framed) once(`off:${sc.id}:${tx.text}`, () => add('error', sc.id, t, `"${label}" runs off the frame (${Math.round(tx.x0)},${Math.round(tx.y0)} to ${Math.round(tx.x1)},${Math.round(tx.y1)} in a ${W}x${H} frame)`));
           } else if (this.appArea) {
             const a = this.appArea;
-            if (tx.x0 < a.left - 2 || tx.y0 < a.top - 2 || tx.x1 > a.right + 2 || tx.y1 > a.bottom + 2) {
+            if (framed && (tx.x0 < a.left - 2 || tx.y0 < a.top - 2 || tx.x1 > a.right + 2 || tx.y1 > a.bottom + 2)) {
               once(`app:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is outside the ${this.config.format} safe area (${a.left},${a.top} to ${a.right},${a.bottom}), where the app's buttons, name or caption can cover it`));
             }
-          } else if (tx.x0 < margin || tx.y0 < margin || tx.x1 > W - margin || tx.y1 > H - margin) {
+          } else if (framed && (tx.x0 < margin || tx.y0 < margin || tx.x1 > W - margin || tx.y1 > H - margin)) {
             once(`edge:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" sits closer than ${margin}px to the edge`));
           }
           const b = this.captionBand;
           if (b && tx.y1 > b.top + 2 && tx.y0 < b.bottom - 2 && tx.x1 > b.left && tx.x0 < b.right) {
             once(`cap:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is in the caption band (y ${Math.round(b.top)} to ${Math.round(b.bottom)}), where captions can cover it; keep content above s.safe.bottom (${Math.round(this.safeArea.bottom)})`));
           }
-          if (!tx.block && tx.size < minSize) once(`small:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is ${Math.round(tx.size)}px, hard to read (use at least ${minSize}px)`));
+          const least = tx.ui ? uiMinSize : minSize;
+          if (!tx.block && Math.round(tx.size) < least) once(`small:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" is ${Math.round(tx.size)}px, hard to read (use at least ${least}px)`));
           const bg = opaque(tx.bg || this.theme.bg, this.theme.bg);
           if (typeof tx.fg === 'string' && contrast(tx.fg, bg) < 3) once(`contrast:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, `"${label}" has low contrast against its background`));
         }
@@ -336,6 +350,8 @@ export class Engine {
             const A = solid[a];
             const B = solid[b];
             if (A.block && B.block) continue;
+            // A dropdown or dialog (s.ui) covers what is under it.
+            if ((A.ui || 1) !== (B.ui || 1)) continue;
             const ix = Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0);
             const iy = Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0);
             if (ix <= 4 || iy <= 4) continue;
@@ -386,7 +402,7 @@ export async function boot({ canvas, scale = 1, version = '' }) {
     import(`/project/scenes.js?v=${encodeURIComponent(version || state.version)}`),
     import('/engine/audio/soundtrack.js').catch((e) => ({ SFX: {}, loadError: e })),
     fetch('/engine/icons/lucide-tags.json').then((r) => r.json()),
-    loadFonts(theme),
+    loadFonts(theme, state.config),
   ]);
   const scenes = scenesMod.default;
   if (!scenes || typeof scenes !== 'object') throw new Error('scenes.js must "export default { sceneId(s) { ... } }"');

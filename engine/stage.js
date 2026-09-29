@@ -54,6 +54,17 @@ export class Stage {
     this._ids = new Map();
     this._kindSeq = Object.create(null);
     this._suppress = 0;
+    this._camMoved = false;
+  }
+
+  // The UI kit for product demos (engine/ui.js): app cards, fields, buttons,
+  // a clicking cursor and serif headlines, in the colors from "brand".
+  get ui() {
+    if (!this._ui) {
+      if (!Stage.UI) throw new SceneError('the UI kit is not loaded');
+      this._ui = new Stage.UI(this);
+    }
+    return this._ui;
   }
 
   // ---------- time ----------
@@ -346,6 +357,8 @@ export class Stage {
       fg: entry.fg,
       bg: entry.bg,
       block: !!entry.block,
+      ui: entry.ui || 0,
+      zoomed: !!entry.zoomed,
     });
   }
 
@@ -395,6 +408,7 @@ export class Stage {
       cur = { x: lerp(prev.x, k.x, p), y: lerp(prev.y, k.y, p), zoom: lerp(prev.zoom, k.zoom, p), rotate: lerp(prev.rotate || 0, k.rotate || 0, p) };
     }
     const ctx = this.ctx;
+    this._camMoved = cur.zoom !== 1 || cur.x !== this.cx || cur.y !== this.cy || Boolean(cur.rotate) || Boolean(o.shake);
     ctx.translate(this.cx, this.cy);
     if (cur.rotate) ctx.rotate((cur.rotate * Math.PI) / 180);
     ctx.scale(cur.zoom, cur.zoom);

@@ -51,7 +51,14 @@ export const DEFAULTS = {
   boil: 0,
   watermark: 'explainroo.com',
   images: null,
+  brand: null,
+  fonts: [],
 };
+
+// Settings for the UI kit (s.ui), for product demos in a brand's own look.
+export const BRAND_KEYS = ['accent', 'background', 'ink', 'font', 'headline', 'logo'];
+const FONT_FILE = /\.(woff2?|ttf|otf)$/i;
+const HEX = /^#[0-9a-f]{6}$/i;
 
 export class ProjectError extends Error {}
 
@@ -97,6 +104,36 @@ export function normalizeConfig(raw) {
     if (extra.length) fail(`images has unknown setting(s): ${extra.join(', ')}. Known: model, style`);
   }
 
+  if (cfg.brand !== null) {
+    if (typeof cfg.brand !== 'object' || Array.isArray(cfg.brand)) fail('brand must be an object like { "accent": "#2563eb", "logo": "assets/logo.svg" }');
+    const extra = Object.keys(cfg.brand).filter((k) => !BRAND_KEYS.includes(k));
+    if (extra.length) fail(`brand has unknown setting(s): ${extra.join(', ')}. Known: ${BRAND_KEYS.join(', ')}`);
+    for (const k of ['accent', 'background', 'ink']) {
+      if (cfg.brand[k] !== undefined && !HEX.test(cfg.brand[k])) fail(`brand.${k} must be a color like "#2563eb", not ${JSON.stringify(cfg.brand[k])}`);
+    }
+    for (const k of ['font', 'headline']) {
+      if (cfg.brand[k] !== undefined && !(typeof cfg.brand[k] === 'string' && cfg.brand[k].trim())) fail(`brand.${k} must be a font family name, like "Inter"`);
+    }
+    if (cfg.brand.logo !== undefined && !(typeof cfg.brand.logo === 'string' && /^assets\/.+\.(svg|png|webp|jpe?g)$/i.test(cfg.brand.logo))) {
+      fail('brand.logo must be an image in the assets/ folder, like "assets/logo.svg"');
+    }
+  }
+  if (!Array.isArray(cfg.fonts)) fail('fonts must be a list like [{ "family": "Figtree", "src": "assets/fonts/figtree-600.woff2", "weight": 600 }]');
+  cfg.fonts.forEach((f, i) => {
+    const where = `fonts[${i}]`;
+    if (!f || typeof f !== 'object' || Array.isArray(f)) fail(`${where} must be an object with family and src`);
+    const extra = Object.keys(f).filter((k) => !['family', 'src', 'weight', 'style'].includes(k));
+    if (extra.length) fail(`${where} has unknown setting(s): ${extra.join(', ')}. Known: family, src, weight, style`);
+    if (!(typeof f.family === 'string' && f.family.trim())) fail(`${where}.family must be a font family name`);
+    if (!(typeof f.src === 'string' && f.src.startsWith('assets/') && FONT_FILE.test(f.src) && !f.src.split('/').includes('..'))) {
+      fail(`${where}.src must be a font file in the assets/ folder (.woff2, .woff, .ttf or .otf), like "assets/fonts/figtree-600.woff2"`);
+    }
+    const w = f.weight ?? 400;
+    const range = typeof w === 'string' ? w.split(/\s+/).map(Number) : [w];
+    if (!(range.length <= 2 && range.every((x) => Number.isInteger(x) && x >= 1 && x <= 1000))) fail(`${where}.weight must be a number like 600, or a range like "100 900" for a variable font`);
+    if (f.style !== undefined && !['normal', 'italic'].includes(f.style)) fail(`${where}.style must be "normal" or "italic"`);
+  });
+
   let music = cfg.music;
   if (music === true) music = { style: THEME_MUSIC[cfg.theme] };
   else if (typeof music === 'string') music = { style: music };
@@ -133,6 +170,9 @@ export function loadProject(arg) {
     fail(`video.json is not valid JSON: ${e.message}`);
   }
   const config = normalizeConfig(raw);
+  for (const f of [...config.fonts.map((x) => x.src), ...(config.brand?.logo ? [config.brand.logo] : [])]) {
+    if (!fs.existsSync(path.join(dir, f))) fail(`${f} is listed in video.json but the file is missing`);
+  }
   const scriptPath = path.join(dir, 'script.md');
   if (!fs.existsSync(scriptPath)) fail(`${scriptPath} is missing`);
   const script = parseScript(fs.readFileSync(scriptPath, 'utf8'));

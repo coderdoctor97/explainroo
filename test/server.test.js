@@ -27,11 +27,16 @@ test('the preview server keeps secrets and sources safe', async () => {
   fs.writeFileSync(path.join(dir, 'scenes.js'), 'export default {};');
   fs.mkdirSync(path.join(dir, 'assets'));
   fs.writeFileSync(path.join(dir, 'assets', 'logo.png'), 'png');
+  fs.mkdirSync(path.join(dir, 'assets', 'fonts'));
+  fs.writeFileSync(path.join(dir, 'assets', 'fonts', 'Brand-600.woff2'), 'font');
+  fs.writeFileSync(path.join(dir, 'assets', 'fonts', 'OFL.txt'), 'license');
   const server = await startServer({ projectDir: dir, getState: () => ({}) });
   try {
     const port = server.port;
     assert.equal((await request(port, { path: '/project/scenes.js' })).status, 200);
     assert.equal((await request(port, { path: '/project/assets/logo.png' })).status, 200);
+    assert.equal((await request(port, { path: '/project/assets/fonts/Brand-600.woff2' })).status, 200);
+    assert.equal((await request(port, { path: '/project/assets/fonts/OFL.txt' })).status, 404);
     assert.equal((await request(port, { path: '/project/.env' })).status, 404);
     assert.equal((await request(port, { path: '/project/notes.md' })).status, 404);
     assert.equal((await request(port, { path: '/project/assets/../.env' })).status, 404);
