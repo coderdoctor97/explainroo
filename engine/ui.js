@@ -71,8 +71,11 @@ export class UI {
       field: '#d0d5dd',
       surface: '#ffffff',
       panel: '#f5f7fb',
+      // brand.colors overrides any of these, for example warm grays.
+      ...(b.colors || {}),
     };
     this._layer = 0;
+    this._layers = 0;
   }
 
   // Scale of the current transform. Canvas shadows and blur filters work in
@@ -258,7 +261,7 @@ export class UI {
       c.fillStyle = '#ffffff';
       c.fill();
       c.restore();
-      if (o.url) this.text(o.url, x + 128, y + bar / 2 + 1, { size: 16, color: this.colors.muted, maxW: w - 170 });
+      if (o.url) this.text(o.url, x + 128, y + bar / 2 + 1, { size: o.urlSize ?? 17, color: this.colors.muted, maxW: w - 170 });
       if (fn) fn(x, y + bar, w, h - bar);
     });
   }
@@ -346,12 +349,15 @@ export class UI {
   }
 
   // Draws fn as a layer on top of what is already there (menus, dialogs).
+  // Each call is its own layer, so `check` does not report text in one
+  // layer as overlapping text in another.
   over(fn) {
-    this._layer++;
+    const prev = this._layer;
+    this._layer = ++this._layers;
     try {
       return fn();
     } finally {
-      this._layer--;
+      this._layer = prev;
     }
   }
 
@@ -402,16 +408,7 @@ export class UI {
   para(str, x, y, maxW, o = {}) {
     const size = o.size ?? 22;
     const lh = o.lh ?? size * 1.45;
-    const lines = [];
-    let cur = '';
-    for (const w of String(str).split(/\s+/)) {
-      const next = cur ? cur + ' ' + w : w;
-      if (cur && this.measure(next, size, o.weight ?? 400, o.font) > maxW) {
-        lines.push(cur);
-        cur = w;
-      } else cur = next;
-    }
-    if (cur) lines.push(cur);
+    const lines = this._wrap(str, maxW, size, o.weight ?? 400, o.font).filter((l, i, a) => l || i < a.length - 1);
     lines.forEach((l, i) => this.text(l, x, y + i * lh, { ...o, base: 'top' }));
     return lines.length * lh;
   }
@@ -610,6 +607,60 @@ export class UI {
     c.restore();
   }
 
+  // A multi-line field: the value wraps inside it, with a caret at the end.
+  textarea(x, y, w, h, o = {}) {
+    const size = o.size ?? 21;
+    const lh = o.lh ?? size * 1.45;
+    this.input(x, y, w, h, { label: o.label, focus: o.focus, alpha: o.alpha, size });
+    const pad = 18;
+    const value = o.value ?? '';
+    if (!value && o.placeholder) {
+      this.para(o.placeholder, x + pad, y + pad, w - pad * 2, { size, lh, color: this.colors.faint });
+      return;
+    }
+    const lines = this._wrap(value, w - pad * 2, size, o.weight ?? 400);
+    lines.forEach((l, i) => this.text(l, x + pad, y + pad + i * lh, { size, base: 'top' }));
+    if (o.caret && (o.focus ?? 0) > 0.5 && Math.floor(this.s.t * 2.2) % 2 === 0) {
+      const last = lines[lines.length - 1] ?? '';
+      const c = this.c;
+      c.fillStyle = this.colors.text;
+      c.fillRect(x + pad + this.measure(last, size) + 2, y + pad + (lines.length - 1) * lh + (lh - size * 1.2) / 2, 2, size * 1.2);
+    }
+  }
+
+  _wrap(str, maxW, size, weight = 400, font) {
+    const lines = [];
+    for (const para of String(str).split('\n')) {
+      let cur = '';
+      for (const w of para.split(/\s+/).filter(Boolean)) {
+        const next = cur ? cur + ' ' + w : w;
+        if (cur && this.measure(next, size, weight, font) > maxW) {
+          lines.push(cur);
+          cur = w;
+        } else cur = next;
+      }
+      lines.push(cur);
+    }
+    return lines;
+  }
+
+  // The part of `str` shown by now when it appears word by word from `at`,
+  // like an AI reply streaming in (wps: words per second).
+  stream(str, at, wps = 9) {
+    const words = String(str).split(/(\s+)/);
+    const n = Math.floor(Math.max(0, this.s.t - this.at(at)) * wps * this.s.pace);
+    let shown = 0;
+    let out = '';
+    for (const part of words) {
+      if (/\S/.test(part)) {
+        if (shown >= n) break;
+        shown++;
+      }
+      out += part;
+    }
+    return out.trimEnd();
+  }
+
   // A dropdown. open 0..1 shows the menu below it, hover is the index of the
   // highlighted option, selected gets a check. Returns each option row's
   // center y, for pointing the cursor at it.
@@ -799,7 +850,7 @@ export class UI {
       c.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, x - r, y - r, r * 2, r * 2);
     }
     c.restore();
-    if (initials && !o.image) this.text(initials, x, y + 1, { size: r * 0.8, weight: 600, color: o.color ?? this.colors.accent, align: 'center' });
+    if (initials && !o.image) this.text(initials, x, y + 1, { size: Math.max(17, r * 0.8), weight: 600, color: o.color ?? this.colors.accent, align: 'center' });
   }
 
   icon(name, x, y, size, color = this.colors.text, weight = 2) {

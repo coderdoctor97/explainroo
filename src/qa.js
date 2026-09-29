@@ -44,7 +44,8 @@ export function resolveTimes(timeline, specs) {
     if (at === 'start') return { T: sc.start, label: `${id}@start` };
     const local = Number(at);
     if (!Number.isFinite(local)) throw new Error(`"${spec}": use scene@seconds, for example ${id}@1.5`);
-    return { T: sc.start + Math.min(local, sc.dur - 0.01), label: `${id}@${local}` };
+    // Keep the time as written, so "ask@7.0" saves as ask@7.0.png.
+    return { T: sc.start + Math.min(local, sc.dur - 0.01), label: `${id}@${at}` };
   });
 }
 

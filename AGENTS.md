@@ -320,8 +320,21 @@ hook(s) {
 ```
 
 Draw the headline after `s.camera()`, or the zoomed screens slide under it.
+When the camera zooms in, either keep the headline fully in view (zoom up to
+about 1.1) or zoom far enough that it leaves the frame (about 1.3 and more).
+In between it gets cut in half.
+
 Time every click to a `[#mark]` in the script, so it happens when the voice
-says it. Move the cursor about 0.7 seconds before the click.
+says it. A cursor move starts at its `at` and arrives `dur` seconds later
+(0.7 by default), so start the move a little more than `dur` before the
+click. The first 0.7 seconds of a scene are covered by the transition from
+the scene before, so put no clicks there.
+
+The watermark sits in the bottom right corner. When the camera zooms in, it
+can cover what is there, so keep important text out of that corner.
+
+Use the product's name as plain text in the first frame. The first frame is
+also the video's cover.
 
 **`s.ui` reference.** Positions are in the frame (1920 wide for 16:9). Times
 take seconds, spoken words or `"#marks"`, like everywhere else.
@@ -332,12 +345,12 @@ take seconds, spoken words or `"#marks"`, like everywhere else.
 | `u.panel(x, y, w, h, { at, out, from, rise, sfx, fill, border, lift }, fn)` | a card that pops in at `at`; `fn(x, y, w, h)` draws inside it |
 | `u.card(x, y, w, h, o)` | a card without an entrance |
 | `u.browser(x, y, w, h, { url, at }, fn)` | a panel with a browser bar; `fn` gets the page area |
-| `u.modal(x, y, w, h, { at, out }, fn)` | a dialog over a dimmed frame |
+| `u.modal(x, y, w, h, { at, out }, fn)`, `u.over(fn)` | a dialog over a dimmed frame, and a layer for your own menus or popups; `check` does not report text in one layer as overlapping text in another |
 | `u.toast(text, { at, out, icon, tone })` | a message that slides up, with a chime |
-| `u.headline(text, x, y, { size, at, out, align, weight, italic })` | big text that blurs in word by word; `*stars*` mark words in the accent color |
-| `u.text(text, x, y, { size, weight, color, align, font, maxW })`, `u.para(text, x, y, maxW, o)`, `u.eyebrow(text, x, y)` | text, wrapped text, and a small uppercase label |
+| `u.headline(text, x, y, { size, at, out, align, weight, italic, color, accent, tracking })` | big text that blurs in word by word; `*stars*` mark words in the `accent` color |
+| `u.text(text, x, y, { size, weight, color, align, base, font, italic, tracking, alpha, maxW, check })`, `u.para(text, x, y, maxW, o)`, `u.eyebrow(text, x, y)` | text, wrapped text (`\n` starts a new line), and a small uppercase label; `font` is `'ui'`, `'headline'` or a family; `check: false` hides text from `check`; `u.measure(text, size, weight)` gives the width |
 | `u.button(label, x, y, w, h, { variant, press, icon, loading, color, caps })` | `primary`, `secondary` or `ghost` |
-| `u.input(x, y, w, h, { label, value, placeholder, focus, caret, icon })` | a text field |
+| `u.input(x, y, w, h, { label, value, placeholder, focus, caret, icon })`, `u.textarea(x, y, w, h, o)` | a text field, and a taller one where the text wraps |
 | `u.select(x, y, w, h, { label, value, open, options, hover, selected })` | a dropdown; returns the y of each option row |
 | `u.toggle(x, y, on)`, `u.checkbox(x, y, on)`, `u.radio(x, y, on)` | `on` goes from 0 to 1, so it can animate |
 | `u.chip(label, x, y, { selected })`, `u.chipWidth(label, o, selected)` | option chips; a selected chip grows by its check mark, so leave room |
@@ -345,15 +358,20 @@ take seconds, spoken words or `"#marks"`, like everywhere else.
 | `u.spinner(x, y, r)`, `u.progress(x, y, w, p)`, `u.avatar(x, y, r, initials, { image })`, `u.icon(name, x, y, size, color)`, `u.lines(x, y, w, n)`, `u.logo(x, y, w)` | small parts; `lines` draws grey bars in place of body text |
 | `u.pop(at, cx, cy, fn, { sfx })` | pops anything in around a point |
 | `u.wipe(at, { color })` | the accent color spreads out until it fills the frame |
-| `u.cursor(keys, { out })` | the mouse; each key `{ at, x, y }` moves it, `{ at, click: true }` clicks with a sound |
-| `u.press(at)`, `u.typed(text, at, cps, { gain, sfx })`, `u.count(to, at, dur)` | a button press (0 to 1 and back), text typed so far with typing sounds, a number counting up |
-| `u.colors` | `accent`, `accentDark`, `accentTint`, `background`, `ink`, `text`, `muted`, `faint`, `line`, `surface` |
+| `u.cursor(keys, { out })` | the mouse; a key `{ at, x, y, dur, arc }` moves it (`arc` bends the path, 0 is straight), `{ at, click: true }` clicks with a sound |
+| `u.press(at)`, `u.typed(text, at, cps, { gain, sfx })`, `u.stream(text, at, wps)`, `u.count(to, at, dur)` | a button press (0 to 1 and back), text typed so far with typing sounds, text appearing word by word like an AI reply, a number counting up |
+| `u.colors` | `accent`, `accentDark`, `accentTint`, `background`, `ink`, `text`, `soft`, `muted`, `faint`, `line`, `field`, `surface`, `panel`; `brand.colors` in `video.json` replaces the grays, for example `{ "text": "#141413", "line": "#e8e6dc" }` for a warm brand |
 
 `check` sees the text of `s.ui` too. It reports text that runs off the frame
 (not while the camera zooms in), text that is too small and text that
 overlaps. A dropdown or dialog may cover what is under it. Look at stills at
 the moments the camera is zoomed in, and check the cursor does not hide the
 word it points at.
+
+Panels and headlines from `s.ui` make no sound unless you pass `sfx`.
+`check` does not see clipping: text you hide by clipping still counts, so
+do not draw text that should not show. Try a product name with its plain
+spelling first; only respell it when the speech check mishears it.
 
 Many sounds under the voice make it hard to follow, and `verify` then
 understands less of it. Keep long typing quiet (`u.typed(text, at, cps, {

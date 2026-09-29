@@ -56,7 +56,9 @@ export const DEFAULTS = {
 };
 
 // Settings for the UI kit (s.ui), for product demos in a brand's own look.
-export const BRAND_KEYS = ['accent', 'background', 'ink', 'font', 'headline', 'logo'];
+export const BRAND_KEYS = ['accent', 'background', 'ink', 'font', 'headline', 'logo', 'colors'];
+// The UI kit's neutral colors that brand.colors can replace.
+export const BRAND_COLORS = ['text', 'soft', 'muted', 'faint', 'line', 'field', 'surface', 'panel'];
 const FONT_FILE = /\.(woff2?|ttf|otf)$/i;
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -113,6 +115,14 @@ export function normalizeConfig(raw) {
     }
     for (const k of ['font', 'headline']) {
       if (cfg.brand[k] !== undefined && !(typeof cfg.brand[k] === 'string' && cfg.brand[k].trim())) fail(`brand.${k} must be a font family name, like "Inter"`);
+    }
+    if (cfg.brand.colors !== undefined) {
+      const c = cfg.brand.colors;
+      if (!c || typeof c !== 'object' || Array.isArray(c)) fail(`brand.colors must be an object like { "text": "#141413", "line": "#e8e6dc" }`);
+      for (const [k, v] of Object.entries(c)) {
+        if (!BRAND_COLORS.includes(k)) fail(`brand.colors has an unknown color "${k}". Known: ${BRAND_COLORS.join(', ')}`);
+        if (!HEX.test(v)) fail(`brand.colors.${k} must be a color like "#141413", not ${JSON.stringify(v)}`);
+      }
     }
     if (cfg.brand.logo !== undefined && !(typeof cfg.brand.logo === 'string' && /^assets\/.+\.(svg|png|webp|jpe?g)$/i.test(cfg.brand.logo))) {
       fail('brand.logo must be an image in the assets/ folder, like "assets/logo.svg"');

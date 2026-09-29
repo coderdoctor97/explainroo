@@ -13,6 +13,9 @@ test('brand settings for the UI kit are checked', () => {
   assert.throws(() => normalizeConfig({ brand: { accent: 'blue' } }), /brand.accent must be a color/);
   assert.throws(() => normalizeConfig({ brand: { logo: '../logo.svg' } }), /assets\/ folder/);
   assert.throws(() => normalizeConfig({ brand: [] }), ProjectError);
+  assert.deepEqual(normalizeConfig({ brand: { colors: { text: '#141413', line: '#e8e6dc' } } }).brand.colors, { text: '#141413', line: '#e8e6dc' });
+  assert.throws(() => normalizeConfig({ brand: { colors: { ink2: '#000000' } } }), /unknown color "ink2"/);
+  assert.throws(() => normalizeConfig({ brand: { colors: { text: 'black' } } }), /brand.colors.text must be a color/);
 });
 
 test('a video can bring its own fonts', () => {
