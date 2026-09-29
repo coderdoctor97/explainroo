@@ -54,6 +54,9 @@ test('the preview server keeps secrets and sources safe', async () => {
     fs.symlinkSync(path.join(dir, 'scenes.js'), path.join(dir, 'build', 'source-link.js'));
     assert.equal((await put('build/source-link.js')).status, 400);
     assert.equal(fs.readFileSync(path.join(dir, 'scenes.js'), 'utf8'), 'export default {};');
+    fs.symlinkSync(path.join(outside, 'new.png'), path.join(dir, 'build', 'dangling.png'));
+    assert.equal((await put('build/dangling.png')).status, 400);
+    assert.ok(!fs.existsSync(path.join(outside, 'new.png')));
     fs.symlinkSync(outside, path.join(dir, 'out', 'elsewhere'));
     assert.equal((await put('out/elsewhere/x.png')).status, 400);
     assert.ok(!fs.existsSync(path.join(outside, 'x.png')));

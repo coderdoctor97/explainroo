@@ -81,8 +81,14 @@ function uploadFile(projectDir, rel) {
   if (realProbe !== realProject && !underRoot(realProbe)) return null;
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   if (!underRoot(fs.realpathSync(path.dirname(dest)))) return null;
-  if (fs.existsSync(dest) && fs.lstatSync(dest).isSymbolicLink()) return null;
-  return dest;
+  // lstat, not existsSync: a symlink to a missing file must be refused too.
+  let link = false;
+  try {
+    link = fs.lstatSync(dest).isSymbolicLink();
+  } catch {
+    link = false;
+  }
+  return link ? null : dest;
 }
 
 export function startServer({ projectDir, getState, port = 0 }) {
