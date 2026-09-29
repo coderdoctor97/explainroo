@@ -416,11 +416,11 @@ Easing names: `linear`, `in`, `out`, `inOut`, `outBack`, `outElastic`,
 
 | Member | Meaning |
 |---|---|
-| `s.W`, `s.H`, `s.cx`, `s.cy` | canvas size and the center of the safe area |
+| `s.W`, `s.H`, `s.cx`, `s.cy` | canvas size and its center (on Shorts, TikTok and Reels the center of `s.safe`) |
 | `s.safe` | `{ x, y, w, h, left, top, right, bottom }`: the area for content (a 7% margin, or the part a platform leaves free) |
 | `s.row(n, { width, x })` | n x positions spread over a width |
-| `s.col(n, { height, y })` | n y positions spread over a height |
-| `s.grid(cols, rows, { x, y, w, h, gap })` | cells `{ x, y, w, h }`, row by row |
+| `s.col(n, { height, y })` | n y positions spread over a height, centered in `s.safe` |
+| `s.grid(cols, rows, { x, y, w, h, gap })` | cells `{ x, y, w, h }`, row by row, filling `s.safe` |
 | `s.get(id)` | size and position of an element drawn earlier with that `id` |
 
 Most elements return `{ x, y, w, h, left, right, top, bottom }`, so you can

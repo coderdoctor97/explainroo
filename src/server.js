@@ -36,17 +36,44 @@ function safeJoin(base, rel) {
   return p;
 }
 
+// Project files the engine page may read: scenes.js and the modules it
+// imports, images, audio and video. Never dotfiles such as .env, and no
+// JSON, Markdown or text files, which can hold keys or private notes.
+const PROJECT_FILES = /\.(m?js|png|jpe?g|webp|gif|svg|wav|mp3|mp4)$/i;
+
+function projectFile(projectDir, rel) {
+  const parts = rel.split(/[\\/]+/);
+  if (parts.some((x) => x.startsWith('.')) || !PROJECT_FILES.test(rel)) return null;
+  return safeJoin(projectDir, rel);
+}
+
+// Uploads from the page may only land in build/ or out/, checked after the
+// path is normalized so "build/../scenes.js" is refused.
+function uploadFile(projectDir, rel) {
+  const dest = safeJoin(projectDir, rel);
+  if (!dest) return null;
+  const inside = ['build', 'out'].some((d) => dest.startsWith(path.join(projectDir, d) + path.sep));
+  return inside ? dest : null;
+}
+
 export function startServer({ projectDir, getState, port = 0 }) {
   const roughPath = resolveModule('roughjs/bundled/rough.esm.js');
   const server = http.createServer(async (req, res) => {
     try {
+      // Only answer requests addressed to this machine. A web page on another
+      // site that points its own domain at 127.0.0.1 (DNS rebinding) sends a
+      // different Host header and is turned away.
+      const port = server.address().port;
+      const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
+      if (!hosts.includes(req.headers.host)) return send(res, 403, 'forbidden host');
+      const origin = req.headers.origin;
+      if (origin && !hosts.some((h) => origin === `http://${h}`)) return send(res, 403, 'forbidden origin');
       const url = new URL(req.url, 'http://x');
       const p = decodeURIComponent(url.pathname);
       if (req.method === 'PUT' && p === '/__upload') {
         const rel = url.searchParams.get('path') || '';
-        if (!/^(build|out)\//.test(rel)) return send(res, 400, 'uploads go to build/ or out/');
-        const dest = safeJoin(projectDir, rel);
-        if (!dest) return send(res, 400, 'bad path');
+        const dest = uploadFile(projectDir, rel);
+        if (!dest) return send(res, 400, 'uploads go to build/ or out/');
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         const chunks = [];
         for await (const c of req) chunks.push(c);
@@ -65,7 +92,7 @@ export function startServer({ projectDir, getState, port = 0 }) {
       else if (p === '/vendor/rough.js') file = roughPath;
       else if (p.startsWith('/engine/')) file = safeJoin(path.join(ROOT, 'engine'), p.slice(8));
       else if (p.startsWith('/fonts/')) file = safeJoin(path.join(ROOT, 'fonts'), p.slice(7));
-      else if (p.startsWith('/project/')) file = safeJoin(projectDir, p.slice(9));
+      else if (p.startsWith('/project/')) file = projectFile(projectDir, p.slice(9));
       if (!file || !fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res, 404, `not found: ${p}`);
       const type = TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
       res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });

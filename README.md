@@ -73,9 +73,11 @@ work: still pictures of every scene, contact sheets, a layout check that finds
 cut-off or overlapping text, and a speech check that catches words the voice
 got wrong.
 
-Nothing leaves your computer, and making a video costs nothing. The one
-exception is optional: for how-to topics the agent can make illustrations
-with an AI image model through OpenRouter, which you pay per image.
+explainroo's own part runs on your computer: the voice, the timing and the
+rendering send nothing anywhere and cost nothing. Your coding agent is a
+separate service with its own terms and costs. For how-to topics the agent can
+also make illustrations with an AI image model through OpenRouter, which is
+optional and paid per image.
 
 ## Looks, sizes and pace
 
@@ -94,9 +96,10 @@ with an AI image model through OpenRouter, which you pay per image.
 
 ## Install it yourself
 
-You need Node.js 20 or newer, ffmpeg, and Chrome or Chromium. The first setup
+You need Node.js 20.11 or newer, ffmpeg, and Chrome or Chromium. The first setup
 downloads the speech models once (about 400 MB). You don't need a graphics
-card.
+card. explainroo is developed and tested on Linux; macOS and Windows should
+work, but they have seen less testing so far.
 
 ```bash
 git clone https://github.com/vincentsch/explainroo.git

@@ -320,8 +320,10 @@ function icons(words, print) {
 async function doctor(flags, log, print) {
   const rows = [];
   const add = (name, ok, detail) => rows.push({ name, ok, detail });
-  const [maj] = process.versions.node.split('.').map(Number);
-  add('node', maj >= 20, `v${process.versions.node}${maj >= 20 ? '' : ' (need 20 or newer)'}`);
+  // The voice library (kokoro-js) needs import.meta.dirname, added in Node 20.11.
+  const [maj, min] = process.versions.node.split('.').map(Number);
+  const nodeOk = maj > 20 || (maj === 20 && min >= 11);
+  add('node', nodeOk, `v${process.versions.node}${nodeOk ? '' : ' (need 20.11 or newer)'}`);
   const ff = ffmpegVersion();
   add('ffmpeg', !!ff, ff || 'not found; install ffmpeg or set EXPLAINROO_FFMPEG');
   try {

@@ -1,6 +1,6 @@
 // Turns each scene's narration into a WAV file plus word timings.
 // Results are cached per scene in build/voice/<scene>.json and only
-// regenerated when the words, voice, speed or pacing change.
+// regenerated when the words, markers, voice, speed or pacing change.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -22,6 +22,9 @@ function sceneHash(scene, chunks, config) {
       voice: config.voice,
       speed: config.speed * config.pace,
       chunks: chunks.map((c) => [c.gapBefore, c.text]),
+      // Markers and the shown text of each word are saved with the timings,
+      // so moving a [#marker] or changing {shown|spoken} makes the scene again.
+      layout: scene.units.map((u) => (u.type === 'mark' ? `#${u.name}` : u.type === 'word' ? u.display : '')).join('|'),
     }))
     .digest('hex')
     .slice(0, 16);

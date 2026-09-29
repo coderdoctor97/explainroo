@@ -77,3 +77,28 @@ test('pace shortens lead-ins, holds and transitions', () => {
   assert.ok(fast.transitionSeconds < normal.transitionSeconds);
   assert.equal(fast.pace, 1.5);
 });
+
+test('in a scene, times stay real seconds and pace shortens animations', async () => {
+  const { Stage } = await import('../engine/stage.js');
+  const { getTheme } = await import('../engine/themes.js');
+  const cfg = normalizeConfig({ pace: 1.6 });
+  const engine = {
+    config: cfg,
+    theme: getTheme('paper'),
+    pen: null,
+    W: 1920,
+    H: 1080,
+    fps: 30,
+    safeArea: layoutAreas(cfg, 1920, 1080).safe,
+    timeline: { pace: 1.6, duration: 10, frames: 300, fps: 30, width: 1920, height: 1080, scenes: [{}] },
+    recorder: null,
+  };
+  const scene = { id: 'a', index: 0, start: 0, dur: 10, lead: 0.2, words: [{ text: 'hello', start: 1, end: 1.4 }], marks: { go: 3 }, voice: { dur: 2 } };
+  const s = new Stage(engine, null, scene, 1.5);
+  assert.equal(s.time(4), 4);
+  assert.equal(s.time('hello') + 0.3, 1.3);
+  assert.equal(s.time('#go'), 3);
+  assert.equal(s.p(1, 0.8), 1); // 0.8 s at pace 1.6 takes 0.5 s, so it is done at 1.5
+  close(s.p(1, 1.6), 0.5); // halfway through 1 s of real time
+  assert.equal(s.pace, 1.6);
+});

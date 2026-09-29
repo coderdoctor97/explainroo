@@ -30,6 +30,9 @@ export class Stage {
     this.platform = Boolean(engine.config.safe);
     this.cx = this.platform ? this.safe.x + this.safe.w / 2 : this.W / 2;
     this.cy = this.platform ? this.safe.y + this.safe.h / 2 : this.H / 2;
+    // The center of the content area. With captions on it sits above the
+    // frame center; layout helpers center on it by default.
+    this._mid = { x: this.safe.x + this.safe.w / 2, y: this.safe.y + this.safe.h / 2 };
     // pace > 1 makes animations shorter. Times stay real seconds of the
     // scene, like s.t and the word cues, so `s.cue('word') + 0.3` keeps working.
     this.pace = engine.timeline.pace || 1;
@@ -149,8 +152,8 @@ export class Stage {
   }
 
   col(n, o = {}) {
-    const height = o.height ?? (this.platform ? this.safe.h * 0.7 : this.H * 0.56);
-    const y = o.y ?? this.cy;
+    const height = o.height ?? (this.platform ? this.safe.h * 0.7 : Math.min(this.H * 0.56, this.safe.h * 0.8));
+    const y = o.y ?? this._mid.y;
     if (n <= 1) return [y];
     return Array.from({ length: n }, (_, i) => y - height / 2 + (height * i) / (n - 1));
   }
@@ -158,8 +161,8 @@ export class Stage {
   grid(cols, rows, o = {}) {
     const w = o.w ?? this.safe.w;
     const h = o.h ?? this.safe.h;
-    const x0 = (o.x ?? this.cx) - w / 2;
-    const y0 = (o.y ?? this.cy) - h / 2;
+    const x0 = (o.x ?? this._mid.x) - w / 2;
+    const y0 = (o.y ?? this._mid.y) - h / 2;
     const gap = o.gap ?? 24;
     const cw = (w - gap * (cols - 1)) / cols;
     const ch = (h - gap * (rows - 1)) / rows;
@@ -193,7 +196,8 @@ export class Stage {
     const enter = o.enter ?? extra.enter ?? this.theme.enter[kind] ?? this.theme.enter.shape ?? 'fade';
     const at = this.time(o.at ?? 0);
     const out = o.out === undefined ? Infinity : this.time(o.out);
-    const dur = (o.dur ?? extra.dur ?? DEFAULT_DUR[enter] ?? 0.6) / this.pace;
+    const base = o.dur ?? extra.dur ?? DEFAULT_DUR[enter] ?? 0.6;
+    const dur = extra.real ? base : base / this.pace;
     this._record(kind, at, dur, o, extra);
     if (this._suppress > 0) return null;
     if (this.t < at) return null;
@@ -387,7 +391,7 @@ export class Stage {
       const k = list[i];
       if (this.t < k.at) break;
       const prev = cur;
-      const p = easeFn(k.ease ?? 'inOut')(clamp((this.t - k.at) / Math.max(0.001, k.dur)));
+      const p = easeFn(k.ease ?? 'inOut')(clamp((this.t - k.at) / Math.max(0.001, k.dur / this.pace)));
       cur = { x: lerp(prev.x, k.x, p), y: lerp(prev.y, k.y, p), zoom: lerp(prev.zoom, k.zoom, p), rotate: lerp(prev.rotate || 0, k.rotate || 0, p) };
     }
     const ctx = this.ctx;
@@ -484,8 +488,10 @@ export class Stage {
       else if (enter === 'words') dur = Math.max(0.4, lay.count * 0.18);
     }
     let times = null;
-    if (enter === 'sync' || enter === 'words') times = this._wordTimes(lay, enter, o, dur);
-    const life = this._life({ ...o, enter }, kind, { dur: enter === 'sync' ? Math.max(0.3, (times[times.length - 1] ?? 0) - this.time(o.at ?? 0) + 0.3) : dur, label: plain.slice(0, 40) });
+    // 'sync' follows the real word times; 'words' is spread over `dur`, which
+    // the pace shortens like every other animation.
+    if (enter === 'sync' || enter === 'words') times = this._wordTimes(lay, enter, o, enter === 'words' ? dur / this.pace : dur);
+    const life = this._life({ ...o, enter }, kind, { dur: enter === 'sync' ? Math.max(0.3, (times[times.length - 1] ?? 0) - this.time(o.at ?? 0) + 0.3) : dur, real: enter === 'sync', label: plain.slice(0, 40) });
     if (!life) return g;
 
     this._push(bx, by, life, o);
@@ -986,7 +992,7 @@ export class Stage {
     const bullet = o.bullet ?? 'dot';
     const indent = size * 1.25;
     const base = this.time(o.at ?? 0);
-    const stagger = o.stagger ?? 0.7;
+    const stagger = (o.stagger ?? 0.7) / this.pace;
     const role = o.font ?? 'body';
     const font = fontString(th, role, size, o.weight);
     const out = [];
@@ -1046,7 +1052,7 @@ export class Stage {
   number(value, o = {}) {
     const th = this.theme;
     const from = o.from ?? 0;
-    const dur = o.dur ?? 1.4;
+    const dur = (o.dur ?? 1.4) / this.pace;
     const at = this.time(o.at ?? 0);
     const decimals = o.decimals ?? (Number.isInteger(value) && Number.isInteger(from) ? 0 : 1);
     const steps = Math.min(18, Math.max(4, Math.round(dur * 10)));
@@ -1080,10 +1086,10 @@ export class Stage {
     const bw = slot * (1 - (o.gapRatio ?? 0.36));
     const base = y + h / 2;
     const at = this.time(o.at ?? 0);
-    const stagger = o.stagger ?? 0.22;
+    const stagger = (o.stagger ?? 0.22) / this.pace;
     this._register(o.id, x, y, w, h);
     // Each bar can have its own `at` (seconds, a spoken word or "#marker").
-    const barAt = items.map((d, i) => (d.at !== undefined ? this.time(d.at) : at + 0.3 + i * stagger));
+    const barAt = items.map((d, i) => (d.at !== undefined ? this.time(d.at) : at + 0.3 / this.pace + i * stagger));
     items.forEach((d, i) => this._record('chart', barAt[i], 0.8, { sfx: o.sfx }, { label: `bar${i}` }));
     const axisLife = this._life({ at, out: o.out, sfx: null }, 'chart', { enter: 'draw', dur: 0.5 });
     if (!axisLife) return geom(x, y, w, h);
@@ -1093,7 +1099,7 @@ export class Stage {
     this.pen.draw(ctx, { kind: 'poly', points: [[x - w / 2 - 20, base], [x + w / 2 + 20, base]] }, { stroke: colorOf(th, 'ink'), width: th.stroke.width, seed: this._seed('axis', o), single: true }, { stroke: ease.inOut(axisLife.p), fill: 1 });
     items.forEach((d, i) => {
       const t0 = barAt[i];
-      const g = ease.out(clamp((this.t - t0) / (o.growDur ?? 0.9)));
+      const g = ease.out(clamp((this.t - t0) / ((o.growDur ?? 0.9) / this.pace)));
       const cx = x - w / 2 + slot * i + slot / 2;
       const bh = (d.value / max) * h;
       if (g > 0) {
@@ -1261,11 +1267,11 @@ export class Stage {
     this._register(o.id, x, y, w, h);
     const at = this.time(o.at ?? 0);
     const reveal = o.reveal ?? 'type';
-    const cps = o.cps ?? 40;
+    const cps = (o.cps ?? 40) * this.pace;
     const chars = lines.reduce((a, l) => a + l.length + 1, 0);
     const typeDur = chars / cps;
-    const lineDelay = o.lineDelay ?? 0.3;
-    const startText = at + 0.35;
+    const lineDelay = (o.lineDelay ?? 0.3) / this.pace;
+    const startText = at + 0.35 / this.pace;
     if (reveal === 'type') this._record('code', startText, typeDur, { sfx: o.sfx }, { label: 'typing', sustain: true });
     const life = this._life({ ...o, sfx: null }, 'code', { dur: 0.5 });
     if (!life) return geom(x, y, w, h);
@@ -1358,15 +1364,15 @@ export class Stage {
     const y = o.y ?? this.cy;
     this._register(o.id, x, y, w, h);
     const at = this.time(o.at ?? 0);
-    const cps = o.cps ?? 22;
-    let clock = at + 0.5;
+    const cps = (o.cps ?? 22) * this.pace;
+    let clock = at + 0.5 / this.pace;
     const timed = items.map((it) => {
       const r = { ...it };
       if (it.at !== undefined) clock = this.time(it.at);
       r.start = clock;
       if (it.cmd !== undefined) {
         r.end = r.start + String(it.cmd).length / cps;
-        clock = r.end + (o.outputDelay ?? 0.35);
+        clock = r.end + (o.outputDelay ?? 0.35) / this.pace;
         this._record('terminal', r.start, r.end - r.start, { sfx: o.sfx }, { label: String(it.cmd).slice(0, 20), sustain: true });
       } else {
         r.end = r.start;

@@ -4,8 +4,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+// Where "npx playwright install" puts browsers on each system.
+function playwrightBase() {
+  if (process.env.PLAYWRIGHT_BROWSERS_PATH) return process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (process.platform === 'win32') return path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'ms-playwright');
+  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright');
+  return path.join(os.homedir(), '.cache', 'ms-playwright');
+}
+
 function playwrightCandidates() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(os.homedir(), process.platform === 'darwin' ? 'Library/Caches/ms-playwright' : '.cache/ms-playwright');
+  const base = playwrightBase();
   if (!fs.existsSync(base)) return [];
   const dirs = fs.readdirSync(base)
     .filter((d) => /^chromium(_headless_shell)?-\d+$/.test(d))
@@ -14,7 +22,7 @@ function playwrightCandidates() {
   for (const d of dirs) {
     const root = path.join(base, d);
     for (const sub of fs.readdirSync(root)) {
-      for (const bin of ['headless_shell', 'chrome', 'Chromium.app/Contents/MacOS/Chromium', 'chrome-headless-shell']) {
+      for (const bin of ['headless_shell', 'chrome', 'Chromium.app/Contents/MacOS/Chromium', 'chrome-headless-shell', 'headless_shell.exe', 'chrome.exe', 'chrome-headless-shell.exe']) {
         out.push(path.join(root, sub, bin));
       }
     }
@@ -31,7 +39,13 @@ export function findChrome() {
   const system = process.platform === 'darwin'
     ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium']
     : process.platform === 'win32'
-      ? [path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google/Chrome/Application/chrome.exe'), path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google/Chrome/Application/chrome.exe')]
+      ? [
+          path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google/Chrome/Application/chrome.exe'),
+          path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google/Chrome/Application/chrome.exe'),
+          path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Google/Chrome/Application/chrome.exe'),
+          path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft/Edge/Application/msedge.exe'),
+          path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Microsoft/Edge/Application/msedge.exe'),
+        ]
       : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium'];
   for (const p of [...playwrightCandidates(), ...system]) {
     if (fs.existsSync(p)) return p;
