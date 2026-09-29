@@ -59,8 +59,8 @@ can appear on a word from the script. explainroo does the rest:
   voice model, reads the script aloud on your own computer. There are 28
   voices, and you don't need an account or an API key.
 - **The timing.** [Whisper](https://github.com/openai/whisper) listens to the
-  recording and notes when each word is spoken, so a picture shows up when the
-  voice names it.
+  recording and writes down when each word is spoken, so a picture shows up
+  when the voice names it.
 - **The pictures.** Chrome runs in the background and draws every frame on a
   canvas: hand-drawn lines with [Rough.js](https://roughjs.com), 1,800
   [Lucide](https://lucide.dev) icons, charts, code and your own screenshots.
@@ -90,7 +90,7 @@ with an AI image model through OpenRouter, which you pay per image.
   Reels, explainroo keeps text away from the buttons the app draws on top.
 - **Pace:** set `pace` to 1.2 and the whole video gets 20% quicker, from the
   voice and the pauses to every animation.
-- **Captions** that light up word by word, for vertical and square videos.
+- **Captions** that light up word by word, for vertical, 4:5 and square videos.
 
 ## Install it yourself
 
