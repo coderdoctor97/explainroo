@@ -552,7 +552,7 @@ export class Stage {
       lay.lines.forEach((line) => {
         const lx0 = ox + lineStartX(line, lay.width, align);
         for (const w of line.words) {
-          const k = clamp((this.t - times[w.index]) / 0.22);
+          const k = clamp((this.t - times[w.index]) / (0.22 / this.pace));
           if (k <= 0) continue;
           drawWord(w, lx0 + w.x, oy + line.y, ease.out(k), (1 - ease.out(k)) * 14);
         }
@@ -1128,7 +1128,7 @@ export class Stage {
       if (d.label !== undefined) {
         const ls = o.labelSize ?? 34;
         ctx.save();
-        ctx.globalAlpha *= clamp((this.t - at) / 0.4);
+        ctx.globalAlpha *= clamp((this.t - at) / (0.4 / this.pace));
         ctx.font = fontString(th, 'body', ls);
         ctx.fillStyle = colorOf(th, 'muted');
         ctx.textAlign = 'center';
@@ -1296,7 +1296,7 @@ export class Stage {
     }
     if (o.highlight) {
       const hl = Array.isArray(o.highlight) ? o.highlight : [o.highlight];
-      const ha = clamp((this.t - this.time(o.highlightAt ?? at + 0.4)) / 0.4);
+      const ha = clamp((this.t - this.time(o.highlightAt ?? at + 0.4 / this.pace)) / (0.4 / this.pace));
       if (ha > 0) {
         ctx.save();
         ctx.globalAlpha *= ha;
@@ -1376,7 +1376,7 @@ export class Stage {
         this._record('terminal', r.start, r.end - r.start, { sfx: o.sfx }, { label: String(it.cmd).slice(0, 20), sustain: true });
       } else {
         r.end = r.start;
-        clock = r.start + (o.lineGap ?? 0.25);
+        clock = r.start + (o.lineGap ?? 0.25) / this.pace;
       }
       return r;
     });
@@ -1459,7 +1459,8 @@ export class Stage {
     const x = o.x ?? this.cx;
     const y = o.y ?? this.cy;
     this._record('burst', at, 0.6, o);
-    const k = this.t - at;
+    // Particle physics run on pace-scaled time, so a faster video bursts faster.
+    const k = (this.t - at) * this.pace;
     if (k < 0 || k > (o.life ?? 2.2)) return;
     const ctx = this.ctx;
     const count = o.count ?? 42;

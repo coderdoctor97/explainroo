@@ -42,6 +42,22 @@ test('the preview server keeps secrets and sources safe', async () => {
     assert.equal(fs.readFileSync(path.join(dir, 'scenes.js'), 'utf8'), 'export default {};');
     assert.equal((await put('out/stills/a.png')).status, 200);
     assert.ok(fs.existsSync(path.join(dir, 'out', 'stills', 'a.png')));
+
+    // Symlinks do not get around the rules.
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'explainroo-outside-'));
+    fs.writeFileSync(path.join(outside, 'secret.png'), 'outside');
+    fs.symlinkSync(path.join(dir, '.env'), path.join(dir, 'assets', 'alias.png'));
+    fs.symlinkSync(path.join(outside, 'secret.png'), path.join(dir, 'assets', 'away.png'));
+    assert.equal((await request(port, { path: '/project/assets/alias.png' })).status, 404);
+    assert.equal((await request(port, { path: '/project/assets/away.png' })).status, 404);
+    fs.mkdirSync(path.join(dir, 'build'), { recursive: true });
+    fs.symlinkSync(path.join(dir, 'scenes.js'), path.join(dir, 'build', 'source-link.js'));
+    assert.equal((await put('build/source-link.js')).status, 400);
+    assert.equal(fs.readFileSync(path.join(dir, 'scenes.js'), 'utf8'), 'export default {};');
+    fs.symlinkSync(outside, path.join(dir, 'out', 'elsewhere'));
+    assert.equal((await put('out/elsewhere/x.png')).status, 400);
+    assert.ok(!fs.existsSync(path.join(outside, 'x.png')));
+    fs.rmSync(outside, { recursive: true, force: true });
   } finally {
     await server.close();
     fs.rmSync(dir, { recursive: true, force: true });

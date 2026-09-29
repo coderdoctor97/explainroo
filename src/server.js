@@ -41,19 +41,48 @@ function safeJoin(base, rel) {
 // JSON, Markdown or text files, which can hold keys or private notes.
 const PROJECT_FILES = /\.(m?js|png|jpe?g|webp|gif|svg|wav|mp3|mp4)$/i;
 
-function projectFile(projectDir, rel) {
+function allowedName(rel) {
   const parts = rel.split(/[\\/]+/);
-  if (parts.some((x) => x.startsWith('.')) || !PROJECT_FILES.test(rel)) return null;
-  return safeJoin(projectDir, rel);
+  return !parts.some((x) => x.startsWith('.')) && PROJECT_FILES.test(rel);
 }
 
-// Uploads from the page may only land in build/ or out/, checked after the
-// path is normalized so "build/../scenes.js" is refused.
+function realInside(base, target) {
+  const root = fs.realpathSync(base);
+  return target === root || target.startsWith(root + path.sep);
+}
+
+// The rules apply to where a file really is: a symlink such as
+// assets/logo.png -> ../../.env is followed and then refused.
+function projectFile(projectDir, rel) {
+  if (!allowedName(rel)) return null;
+  const file = safeJoin(projectDir, rel);
+  if (!file || !fs.existsSync(file)) return null;
+  const real = fs.realpathSync(file);
+  if (!realInside(projectDir, real)) return null;
+  const realRel = path.relative(fs.realpathSync(projectDir), real);
+  return allowedName(realRel) ? real : null;
+}
+
+// Uploads from the page may only land in build/ or out/: checked after the
+// path is normalized (so "build/../scenes.js" is refused), and again on the
+// real folder, and never onto a symlink.
 function uploadFile(projectDir, rel) {
   const dest = safeJoin(projectDir, rel);
   if (!dest) return null;
-  const inside = ['build', 'out'].some((d) => dest.startsWith(path.join(projectDir, d) + path.sep));
-  return inside ? dest : null;
+  const root = ['build', 'out'].find((d) => dest.startsWith(path.join(projectDir, d) + path.sep));
+  if (!root) return null;
+  const realProject = fs.realpathSync(projectDir);
+  const realRoot = path.join(realProject, root);
+  const underRoot = (p) => p === realRoot || p.startsWith(realRoot + path.sep);
+  // Check the folders that already exist before creating any.
+  let probe = path.dirname(dest);
+  while (!fs.existsSync(probe)) probe = path.dirname(probe);
+  const realProbe = fs.realpathSync(probe);
+  if (realProbe !== realProject && !underRoot(realProbe)) return null;
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  if (!underRoot(fs.realpathSync(path.dirname(dest)))) return null;
+  if (fs.existsSync(dest) && fs.lstatSync(dest).isSymbolicLink()) return null;
+  return dest;
 }
 
 export function startServer({ projectDir, getState, port = 0 }) {
@@ -74,7 +103,6 @@ export function startServer({ projectDir, getState, port = 0 }) {
         const rel = url.searchParams.get('path') || '';
         const dest = uploadFile(projectDir, rel);
         if (!dest) return send(res, 400, 'uploads go to build/ or out/');
-        fs.mkdirSync(path.dirname(dest), { recursive: true });
         const chunks = [];
         for await (const c of req) chunks.push(c);
         fs.writeFileSync(dest, Buffer.concat(chunks));
