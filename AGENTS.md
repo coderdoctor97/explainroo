@@ -247,12 +247,12 @@ video.
 
 ## Product demos
 
-A product demo shows an app being used, like the launch videos software
-companies make. The app's screens are drawn again with `s.ui`: cards, fields,
-buttons, dropdowns, toggles and status pills that look like the real app. A
-cursor moves, clicks and types. The camera zooms in on what the voice talks
-about, and big headlines blur in word by word. See `examples/unspar-demo` for
-a full one.
+A product demo is the kind of video software companies make to show their
+app. You rebuild the app's screens with `s.ui`, which has cards, fields,
+buttons, dropdowns, toggles and status labels in the app's colors and fonts.
+A mouse pointer clicks through the screens and types into the fields, and the
+camera zooms in on what the voice talks about. `examples/unspar-demo` is a
+complete one.
 
 **Keep it true.** A demo is advertising, so everything in it has to be right.
 
