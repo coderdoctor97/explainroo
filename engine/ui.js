@@ -45,10 +45,13 @@ const FLOATERS = [
   { x: 0.365, y: 0.954, r: 3 }, { x: 0.635, y: 0.037, r: -3 },
 ];
 
+// While a hidden s.group() runs (to collect timing and sounds), the kit must
+// not draw: these canvas calls are skipped then, everything else goes through.
+const DRAW_CALLS = new Set(['fill', 'stroke', 'fillText', 'strokeText', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'putImageData']);
+
 export class UI {
   constructor(s) {
     this.s = s;
-    this.c = s.ctx;
     const th = s.theme;
     const b = s.engine.config.brand || {};
     const accent = b.accent ?? th.colors[th.accent];
@@ -76,6 +79,30 @@ export class UI {
     };
     this._layer = 0;
     this._layers = 0;
+  }
+
+  // The canvas, or a stand-in that draws nothing while a group is hidden.
+  get c() {
+    if (!(this.s._suppress > 0)) return this.s.ctx;
+    if (!this._quiet) {
+      const real = this.s.ctx;
+      this._quiet = new Proxy(real, {
+        get(target, key) {
+          if (DRAW_CALLS.has(key)) return () => {};
+          const v = target[key];
+          return typeof v === 'function' ? v.bind(target) : v;
+        },
+        set(target, key, value) {
+          target[key] = value;
+          return true;
+        },
+      });
+    }
+    return this._quiet;
+  }
+
+  get hidden() {
+    return this.s._suppress > 0;
   }
 
   // Scale of the current transform. Canvas shadows and blur filters work in
@@ -364,7 +391,7 @@ export class UI {
   // ---------- text ----------
 
   _log(str, x, y, w, size, align, base) {
-    if (!str.trim()) return;
+    if (!str.trim() || this.hidden) return;
     const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
     const [t, b] = base === 'top' ? [0, 1.2] : base === 'alphabetic' ? [-0.8, 0.22] : [-0.6, 0.6];
     this.s._logText({ text: str, x0, y0: y + t * size, x1: x0 + w, y1: y + b * size, size, fg: null, bg: null, ui: this._layer + 1, zoomed: this.s._camMoved });
@@ -854,6 +881,7 @@ export class UI {
   }
 
   icon(name, x, y, size, color = this.colors.text, weight = 2) {
+    if (this.hidden) return;
     this.s._iconAt(name, x, y, size, color, 1, 1, weight);
   }
 
