@@ -19,12 +19,10 @@
   <a href="AGENTS.md">AGENTS.md</a>
 </p>
 
+https://github.com/user-attachments/assets/6dd5dc32-c975-4e0e-8cd4-2ef3ccc11e61
+
 <p align="center">
-  <a href="https://www.explainroo.com/videos/how-explainroo-makes-a-video/">
-    <img src="docs/media/intro.gif" alt="The explainroo intro video" width="720">
-  </a>
-  <br>
-  <sub>A coding agent made this video with explainroo. <a href="https://www.explainroo.com/videos/how-explainroo-makes-a-video/">Watch it with sound</a>.</sub>
+  <sub>A coding agent made this video with explainroo. It also plays on <a href="https://www.explainroo.com/videos/how-explainroo-makes-a-video/">explainroo.com</a>.</sub>
 </p>
 
 ## Make a video
