@@ -55,5 +55,8 @@
   },
   "devDependencies": {
     "lucide-static": "1.48.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.5"
   }
 }
