@@ -26,7 +26,7 @@ Make a video
   preview [project]     live preview in your browser, reloads on save (--port)
   still [project] [t…]  PNG stills: "12.5", "scene", "scene@2.4" (default: end of every scene)
   sheet [project]       contact sheet of the whole video (--scene id, --every s)
-  check [project]       find layout, timing and pronunciation problems
+  check [project]       find layout, timing and pronunciation problems (--view-width pixels)
   render [project]      write out/video.mp4 (--draft, --from s, --to s, --workers n, --out file)
   verify [project]      check the rendered file: loudness, black frames, narration
 
@@ -117,7 +117,7 @@ export async function main(argv) {
       }
       case 'check': {
         const project = loadProject(pos[0]);
-        const r = await check(project, { log, step: num(flags.step, 'step') ?? 0.25 });
+        const r = await check(project, { log, step: num(flags.step, 'step') ?? 0.25, viewWidth: num(flags['view-width'], 'view-width') ?? null });
         const errors = r.issues.filter((i) => i.level === 'error').length;
         const human = r.issues.length
           ? r.issues.map((i) => `${i.level.toUpperCase().padEnd(5)} ${i.scene ?? ''}${i.t !== null && i.t !== undefined ? ' @' + i.t + 's' : ''}: ${i.message}`).join('\n') + `\n${errors} error(s), ${r.issues.length - errors} other finding(s) in ${r.scenes} scenes (${r.duration.toFixed(1)}s)`

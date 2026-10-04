@@ -8,7 +8,8 @@ import { transcribeWords } from './models.js';
 import { readWav } from './wav.js';
 import { alignWords } from './align.js';
 
-export async function check(project, { log = () => {}, step = 0.25 } = {}) {
+export async function check(project, { log = () => {}, step = 0.25, viewWidth = null } = {}) {
+  if (viewWidth !== null && (!Number.isFinite(viewWidth) || viewWidth <= 0)) throw new Error("--view-width must be a positive number");
   const { voices, timeline } = await prepare(project, { log });
   const issues = [];
   for (const sc of project.script.scenes) {
@@ -19,7 +20,7 @@ export async function check(project, { log = () => {}, step = 0.25 } = {}) {
     }
     if (v && v.duration > 40) issues.push({ level: 'hint', scene: sc.id, t: null, message: `the narration runs ${v.duration.toFixed(0)}s; long scenes are easier to follow when split` });
   }
-  const pageIssues = await withEngine(project, timeline, { scale: 0.5, log }, (page) => page.evaluate((s) => window.explainroo.check(s), step));
+  const pageIssues = await withEngine(project, timeline, { scale: 0.5, log }, (page) => page.evaluate(([s, w]) => window.explainroo.check(s, w), [step, viewWidth]));
   issues.push(...pageIssues);
   const order = { error: 0, warn: 1, hint: 2 };
   issues.sort((a, b) => order[a.level] - order[b.level]);

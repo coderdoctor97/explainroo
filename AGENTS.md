@@ -117,6 +117,14 @@ When you ask, put everything you need in one message. Typical reasons to ask:
    empty? Does the sheet show something new every few seconds? Fix what is
    wrong and look again.
 
+   For Reddit and other feeds, also run `check videos/<name> --view-width
+   854`. It warns when visible text shrinks below 16px in that player.
+   This is a size check, not a guarantee about platform compression. Show
+   only the current query or result, use bigger type, and zoom into details.
+   Review a still at `--scale 0.4448` too (about 480p for a 1080p video).
+   Never upload `draft.mp4`. After uploading, check the platform's lower
+   quality copy as well as its full-size copy.
+
 10. **Make the video and check the file.**
 
     ```bash

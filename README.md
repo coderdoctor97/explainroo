@@ -67,7 +67,8 @@ explainroo does the rest:
 An agent can't watch a video, so explainroo gives it other ways to check its
 work. It saves stills of the scenes and a sheet of small frames for the whole
 video. A layout check finds text that is cut off or overlaps, and a speech
-check finds words the voice got wrong.
+check finds words the voice got wrong. For a feed-sized player,
+`explainroo check videos/<name> --view-width 854` also flags small text.
 
 None of this leaves your computer, and it costs nothing. Your coding agent is
 a separate service with its own terms and prices. If you want, the agent can

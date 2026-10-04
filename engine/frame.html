@@ -83,8 +83,8 @@ window.explainrooReady = (async () => {
       await upload(path, blob);
       return { width: sheet.width, height: sheet.height };
     },
-    check(step) {
-      return engine.check(step);
+    check(step, viewWidth) {
+      return engine.check(step, viewWidth);
     },
     async soundtrack(path) {
       const { buffer, cues, errors } = await renderAudio(engine, audio);

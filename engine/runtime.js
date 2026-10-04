@@ -9,6 +9,7 @@ import { buildPhrases, drawCaptions } from './captions.js';
 import { hashStr, mulberry32, suggest, contrast, opaque, withAlpha } from './util.js';
 import { layoutAreas } from './layout.js';
 import { UI } from './ui.js';
+import { playbackTextIssue } from './readability.js';
 
 Stage.UI = UI;
 
@@ -285,7 +286,7 @@ export class Engine {
   }
 
   // Samples every scene and reports layout problems.
-  check(step = 0.25) {
+  check(step = 0.25, viewWidth = null) {
     const issues = [];
     const add = (level, scene, t, message) => issues.push({ level, scene, t: t === null ? null : Math.round(t * 100) / 100, message });
     for (const id of this.extraScenes) add('warn', id, null, `scenes.js has a function "${id}" but script.md has no scene with that id, so it is never shown`);
@@ -320,6 +321,10 @@ export class Engine {
         for (const pr of this.textLog.filter((x) => x.problem)) once(`problem:${sc.id}:${pr.problem}`, () => add('error', sc.id, t, pr.problem));
         const texts = this.textLog.filter((x) => !x.problem && x.alpha > 0.5);
         for (const tx of texts) {
+          if (viewWidth !== null) {
+            const message = playbackTextIssue(tx, W, H, viewWidth);
+            if (message) once(`playback:${sc.id}:${tx.text}`, () => add('warn', sc.id, t, message));
+          }
           const label = tx.text.length > 40 ? tx.text.slice(0, 37) + '...' : tx.text;
           // UI kit text (s.ui) may leave the frame on purpose while the
           // camera zooms or pans; app screens use smaller text than slides.
