@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { fmtBytes, type PlanAnswer, type ProjectStatus, type Sources as SourcesInfo } from '../api';
+import { useRef, useState, type ReactNode } from 'react';
+import { fmtBytes, type Job, type PlanAnswer, type ProjectStatus, type Sources as SourcesInfo } from '../api';
 import { Hang, Panel } from '../components/ui';
 
 const SLOTS = [
@@ -23,12 +23,13 @@ const SLOTS = [
   },
 ];
 
-function Drop({ slot, info, onUpload, onRemove, busy }: {
+function Drop({ slot, info, onUpload, onRemove, busy, extra }: {
   slot: (typeof SLOTS)[number];
   info: SourcesInfo[keyof Omit<SourcesInfo, 'assets'>];
   onUpload: (file: File) => void;
   onRemove: () => void;
   busy: boolean;
+  extra?: ReactNode;
 }) {
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -73,31 +74,36 @@ function Drop({ slot, info, onUpload, onRemove, busy }: {
             ✕
           </button>
         )}
+        {extra}
       </div>
     </div>
   );
 }
 
-export function Sources({ status, plan, busy, onUpload, onRemove, onAnalyze, onAsset }: {
+export function Sources({ status, plan, busy, job, onUpload, onRemove, onAnalyze, onMakeTimestamps, onAsset }: {
   status: ProjectStatus;
   plan: PlanAnswer | null;
   busy: boolean;
+  job: Job | null;
   onUpload: (kind: 'transcript' | 'timestamps' | 'audio', file: File) => void;
   onRemove: (kind: string) => void;
   onAnalyze: () => void;
+  onMakeTimestamps: () => void;
   onAsset: (file: File, name: string) => void;
 }) {
   const [assetOver, setAssetOver] = useState(false);
   const assetInput = useRef<HTMLInputElement>(null);
   const have = SLOTS.filter((s) => status.sources[s.kind]?.ok).length;
+  const made = job?.kind === 'timestamps' ? job : null;
 
   return (
     <>
       <Hang title="Sources" note={`${have} of 3 files`} />
       <p className="lede">
         Drop the three files your recorder gave you. Nothing is uploaded anywhere: they are copied into{' '}
-        <span className="mono">studio-workspace/</span> on this machine and read there. No voice model is used, so the timing you
-        already have is the timing the video gets.
+        <span className="mono">studio-workspace/</span> on this machine and read there. Bring the timings you already have, or let
+        the local speech model listen to the voice-over and make <span className="mono">timestamps.json</span> right here. Either
+        way, no API key is used.
       </p>
       <div className="stack">
         {SLOTS.map((slot) => (
@@ -108,9 +114,32 @@ export function Sources({ status, plan, busy, onUpload, onRemove, onAnalyze, onA
             busy={busy}
             onUpload={(f) => onUpload(slot.kind, f)}
             onRemove={() => onRemove(slot.kind)}
+            extra={
+              slot.kind === 'timestamps' && status.sources.audio?.ok ? (
+                <button
+                  className="btn"
+                  onClick={onMakeTimestamps}
+                  disabled={busy}
+                  title="run the local speech model on voiceover.wav"
+                >
+                  Make from the voice-over
+                </button>
+              ) : null
+            }
           />
         ))}
       </div>
+      {made && (made.status === 'running' || made.status === 'error') && (
+        <p className="mono dim" style={{ fontSize: 'var(--text-xs)', marginTop: 'var(--space-2xs)' }} aria-live="polite">
+          {made.status === 'error' ? (
+            <span className="err" style={{ color: 'var(--err)' }}>
+              {made.error}
+            </span>
+          ) : (
+            made.lines[made.lines.length - 1] || 'listening…'
+          )}
+        </p>
+      )}
 
       <div className="row" style={{ marginTop: 'var(--space-sm)' }}>
         <button className="btn primary" onClick={onAnalyze} disabled={!status.sources.transcript?.ok || !status.sources.timestamps?.ok || busy}>

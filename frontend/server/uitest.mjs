@@ -500,6 +500,12 @@ ok('the transport renders', !!$('.transport') || !!byText('button', 'Play'));
 // ---------- Sources ----------
 const readBtn = byText('button', 'Read the sources');
 ok('“Read the sources” is offered', !!readBtn && !readBtn.disabled, readBtn ? `disabled=${readBtn.disabled}` : shot());
+const makeTs = byText('button', 'Make from the voice-over');
+ok(
+  'with a voice-over, the timings slot offers to make them from it',
+  !!makeTs && !makeTs.disabled,
+  makeTs ? `disabled=${makeTs.disabled}` : shot(),
+);
 await click(readBtn);
 const planned = await until(async () => (/scenes/.test($('.rail')?.textContent || '') ? true : null), { tries: 60 });
 ok('reading the sources planned the scenes', !!planned, $('.rail')?.textContent.replace(/\s+/g, ' ').slice(0, 80));

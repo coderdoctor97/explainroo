@@ -10,14 +10,16 @@ npm run dev                 # http://localhost:5173
 node bin/explainroo.js studio --port 4000
 ```
 
-Nothing is sent anywhere. There is no voice model, no speech-to-text model and
-no API key: the timings you uploaded are the timings in the video.
+Nothing is sent anywhere and no API key is used. The timings you uploaded are
+the timings in the video; if you have none, **Make from the voice-over** runs
+the same local Whisper model the command line uses for its speech check and
+writes `timestamps.json` for you.
 
 ## What it does
 
 | Step | What you do | What happens |
 | --- | --- | --- |
-| **Sources** | drag the three files in, add images if a scene needs one | the files are copied into `studio-workspace/` and read; nothing is parsed until you ask |
+| **Sources** | drag the three files in (or make the timings from the voice-over), add images if a scene needs one | the files are copied into `studio-workspace/` and read; nothing is parsed until you ask |
 | **Scene plan** | rename headings, edit the words shown on screen, split a scene at the playhead, merge two | the transcript is cut into scenes at sentences, paragraphs or every N words; the plan is saved per project |
 | **Look** | pick one of the five looks, the size, the pace, captions, music | the look is the same `theme` setting a hand-written project uses, so a studio video matches one made by an agent |
 | **Build and render** | build, check, save stills, render | a normal explainroo project is written, then the repo's own engine draws it and ffmpeg writes the MP4 |
@@ -119,12 +121,13 @@ frontend/
   server/
     store.js            studio-workspace: projects, sources, assets, settings
     timestamps.js       reads the many shapes a timing file comes in
+    stt.js              makes timestamps.json from the voice-over (the local Whisper model)
     plan.js             alignment, scene splitting, headings, keywords, the voice cache
     generate.js         script.md, scenes.js, video.json
     build.js            analyze / build / status / doctor
     api.js              the HTTP API (127.0.0.1 only, reached through /api)
-    selftest.mjs        npm run test:studio — 31 checks, no browser
-    uitest.mjs          npm run test:ui — 87 checks (92 with a build), React in jsdom, real API, the page guards
+    selftest.mjs        npm run test:studio — 32 checks, no browser
+    uitest.mjs          npm run test:ui — 88 checks (93 with a build), React in jsdom, real API, the page guards
 ```
 
 ## Tests
@@ -209,6 +212,11 @@ whether it works.
 - Rendering needs Chrome (to draw) and ffmpeg (to write the MP4), the same two
   things the command line needs. The studio shows both, honestly, before you
   press a button.
+- **Make from the voice-over** uses the same local speech model the command
+  line's speech check uses (`whisper-base.en`, q8, on the CPU, English). It is
+  fetched once into `~/.cache/explainroo/models` and then runs offline; the
+  first run downloads about 150 MB, later runs take roughly the length of the
+  recording. Uploading your own `timestamps.json` never touches the model.
 - The auto headings, keywords and icons are deterministic heuristics, not a
   model: they are meant to be edited, and the plan step exists for that.
 - The API listens on 127.0.0.1 only and the page talks to its own origin. If

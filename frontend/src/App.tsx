@@ -117,6 +117,18 @@ export default function App() {
     }
   }, [id]);
 
+  // The local speech model listens to the uploaded voice-over and writes the
+  // timings file. It runs as a job, so the same poll shows its log lines.
+  const makeTimestamps = useCallback(async () => {
+    if (!id) return;
+    setError(null);
+    try {
+      setJob(await api.makeTimestamps(id));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [id]);
+
   const patch = useCallback(
     async (p: Partial<Studio>) => {
       if (!state) return;
@@ -208,9 +220,9 @@ export default function App() {
       <div className="start">
         <h1>explainroo studio</h1>
         <p>
-          You bring the words, the word timings and the recording. The studio lines them up, cuts the narration into scenes, writes
-          the files explainroo needs and renders the video. No voice model, no speech model, no API keys: the timing you already
-          have is the timing you get.
+          You bring the words, the recording and the timings you already have. The studio lines them up, cuts the narration into
+          scenes, writes the files explainroo needs and renders the video. No API keys: everything runs on this machine, and if
+          you have no timings yet, the local speech model can make them from the voice-over.
         </p>
         <div className="row" style={{ marginTop: 'var(--space-md)', gap: 'var(--space-2xs)' }}>
           <input
@@ -356,6 +368,7 @@ export default function App() {
               status={state.status}
               plan={plan}
               busy={busy}
+              job={job}
               onUpload={async (kind, file) => {
                 try {
                   await api.upload(id, kind, file);
@@ -369,6 +382,7 @@ export default function App() {
                 await afterUpload();
               }}
               onAnalyze={analyze}
+              onMakeTimestamps={makeTimestamps}
               onAsset={async (file, name) => {
                 try {
                   await api.uploadAsset(id, name, file);

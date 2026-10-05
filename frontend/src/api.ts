@@ -200,6 +200,7 @@ export const api = {
   uploadAsset: (id: string, name: string, file: File) =>
     put(`/projects/${id}/asset?name=${encodeURIComponent(name)}`, file, file.type || 'application/octet-stream'),
   analyze: (id: string) => call<Job>(`/projects/${id}/analyze`, { method: 'POST' }),
+  makeTimestamps: (id: string) => call<Job>(`/projects/${id}/timestamps`, { method: 'POST' }),
   build: (id: string) => call<Job>(`/projects/${id}/build`, { method: 'POST' }),
   render: (id: string, body: { draft?: boolean } = {}) => call<Job>(`/projects/${id}/render`, { method: 'POST', body: JSON.stringify(body) }),
   check: (id: string) => call<Job>(`/projects/${id}/check`, { method: 'POST' }),

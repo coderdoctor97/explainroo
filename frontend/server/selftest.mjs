@@ -19,6 +19,7 @@ const { createProject, writeSource, projectPaths, readStudio, writeStudio, sourc
 const { transcriptWords, readAudio, headingFor } = await import('./plan.js');
 const { analyze, buildProject } = await import('./build.js');
 const { parseTimestamps } = await import('./timestamps.js');
+const { makeTimestamps } = await import('./stt.js');
 const { loadProject } = await import('../../src/project.js');
 const { buildTimeline } = await import('../../src/timeline.js');
 const { synthesize, sceneHash } = await import('../../src/voice.js');
@@ -110,6 +111,14 @@ ok('timings: milliseconds are divided by 1000', () => {
 
 ok('timings: nonsense is refused with a readable message', () => {
   assert.throws(() => parseTimestamps(JSON.stringify({ hello: 'world' })), /could not find word times/);
+});
+
+// Making the timings needs the voice-over, and this check must not load a
+// model: without the file it has to stop and say which one it needs.
+const noVoice = await makeTimestamps(createProject('No voice over'), () => {}).catch((e) => e);
+ok('asr: making timestamps without a voice-over names the file to upload', () => {
+  assert.ok(noVoice instanceof Error, `expected an error, got ${JSON.stringify(noVoice)}`);
+  assert.match(noVoice.message, /voiceover\.wav/);
 });
 
 // ---------- the whole path ----------

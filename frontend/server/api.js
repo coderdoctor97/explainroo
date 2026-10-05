@@ -9,6 +9,7 @@ import { FORMATS, TRANSITIONS, MUSIC_STYLES, loadProject } from '../../src/proje
 import { analyze, buildProject, doctor, status } from './build.js';
 import { createProject, deleteProject, listProjects, projectExists, projectPaths, readIndex, readStudio, removeSource, sourcePath, StudioError, writeAsset, writeSource, writeStudio } from './store.js';
 import { getJob, jobFor, publicJob, startJob } from './jobs.js';
+import { makeTimestamps } from './stt.js';
 import { styleList, LAYOUTS } from './presets.js';
 import { iconFor } from './plan.js';
 
@@ -221,6 +222,18 @@ export function startStudioApi({ port = 4318, host = '127.0.0.1' } = {}) {
       if (what === 'source' && method === 'DELETE') {
         removeSource(id, url.searchParams.get('kind'));
         return json(res, 200, { ok: true, sources: status(id).sources });
+      }
+
+      // Make timestamps.json from the uploaded voice-over, like the command
+      // line does. Uploading a file of your own still works and replaces it.
+      if (what === 'timestamps' && method === 'POST') {
+        const job = startJob({
+          projectId: id,
+          kind: 'timestamps',
+          label: 'Make timestamps',
+          run: (log) => makeTimestamps(id, log),
+        });
+        return json(res, 202, publicJob(job));
       }
 
       if (what === 'asset' && method === 'PUT') {
