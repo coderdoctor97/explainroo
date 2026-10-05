@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { startStudioApi } from './api.js';
 import { checkCharset } from '../scripts/check-charset.mjs';
+import { checkDoctype } from '../scripts/check-doctype.mjs';
 import { checkViewport, firstViewportMeta } from '../scripts/check-viewport.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
@@ -183,13 +184,35 @@ const setField = async (el, value) => {
 const text = () => window.document.body.textContent.replace(/\s+/g, ' ');
 const shot = () => text().slice(0, 160);
 
+// ---------- the doctype rule (html/doctype) ----------
+// The HTML5 doctype must be the first bytes of the document. Without it,
+// browsers enter Quirks Mode. Check the file on disk, then the DOM a browser
+// builds out of it. The build output is checked too, when there is one.
+const pageFile = path.join(ROOT, 'frontend', 'index.html');
+const distDir = path.join(ROOT, 'frontend-dist');
+for (const result of checkDoctype([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  ok(
+    `doctype: ${path.relative(ROOT, result.file)} starts with <!DOCTYPE html>`,
+    result.problems.length === 0,
+    result.problems[0] || result.doctype,
+  );
+}
+const pageBytes = fs.readFileSync(pageFile);
+ok(
+  'doctype: no UTF-8 BOM before the declaration',
+  !(pageBytes.length >= 3 && pageBytes[0] === 0xef && pageBytes[1] === 0xbb && pageBytes[2] === 0xbf),
+);
+ok(
+  'doctype: the first bytes are <!DOCTYPE html>',
+  pageBytes.toString('utf8').startsWith('<!DOCTYPE html>'),
+  pageBytes.toString('utf8').slice(0, 24),
+);
+
 // ---------- the charset rule (html/charset) ----------
 // index.html is the only thing the browser reads before it reads anything
 // else, so check the file on disk and then check what a DOM made of it says,
 // the way the browser reports it. The build output is checked too, when there
 // is one (npm run build).
-const pageFile = path.join(ROOT, 'frontend', 'index.html');
-const distDir = path.join(ROOT, 'frontend-dist');
 for (const result of checkCharset([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
   ok(
     `charset: ${path.relative(ROOT, result.file)} declares UTF-8 first in <head>`,
@@ -199,6 +222,11 @@ for (const result of checkCharset([pageFile, ...(fs.existsSync(distDir) ? [distD
 }
 const page = new JSDOM(fs.readFileSync(pageFile, 'utf8'), { url: 'http://localhost:5173/' });
 const head = page.window.document.head;
+ok(
+  'doctype: document.doctype is html',
+  !!page.window.document.doctype && page.window.document.doctype.name === 'html',
+  page.window.document.doctype ? page.window.document.doctype.name : 'missing',
+);
 ok('charset: document.characterSet is UTF-8', page.window.document.characterSet === 'UTF-8', page.window.document.characterSet);
 ok(
   'charset: the first element in <head> is <meta charset>',
