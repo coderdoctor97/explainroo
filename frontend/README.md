@@ -107,6 +107,8 @@ frontend/
   dev.mjs               starts the API, then Vite, and wires /api to it
   scripts/
     check-charset.mjs   the html/charset guard: UTF-8 first in <head>, no BOM
+    check-doctype.mjs   the html/doctype guard: <!DOCTYPE html> as the very first bytes
+    check-sri.mjs       the html/subresource-integrity guard: nothing from another origin, or pinned and hashed
     check-viewport.mjs  the html/viewport guard: one responsive viewport, zoom left on
   src/
     api.ts              one typed function per route; all URLs are relative
@@ -121,8 +123,8 @@ frontend/
     generate.js         script.md, scenes.js, video.json
     build.js            analyze / build / status / doctor
     api.js              the HTTP API (127.0.0.1 only, reached through /api)
-    selftest.mjs        npm run test:studio — 25 checks, no browser
-    uitest.mjs          npm run test:ui — 45 checks, React in jsdom, real API, the head guards
+    selftest.mjs        npm run test:studio — 31 checks, no browser
+    uitest.mjs          npm run test:ui — 68 checks (72 with a build), React in jsdom, real API, the head guards
 ```
 
 ## Tests
@@ -134,7 +136,9 @@ npm run test:studio    # the back end: parsing, planning, voice cache, generatio
 npm run test:ui        # the front end: mount the app, click it, read the DOM
 npm run build          # bundle the page into frontend-dist/
 node frontend/scripts/check-charset.mjs  # the charset guard alone, every HTML file
+node frontend/scripts/check-doctype.mjs  # the doctype guard alone, every HTML file
 node frontend/scripts/check-viewport.mjs # the viewport guard alone, every HTML file
+node frontend/scripts/check-sri.mjs      # the subresource integrity guard alone, every HTML file
 ```
 
 The charset guard is its own script because it has to run on a checkout with no
@@ -153,6 +157,49 @@ it does not start from `width=device-width, initial-scale=1` (`1.0` is the same
 number), when `user-scalable=no` is set, or when `maximum-scale` caps zoom
 below 2. The two rules are one line in one file, so a regression is a one-line
 mistake — this is the guard for it.
+
+The subresource integrity guard follows the same shape for the
+html/subresource-integrity rule, and today it has nothing to hash: the studio
+loads no script and no stylesheet from anybody else's server. React and
+roughjs are bundled out of `node_modules` by Vite, the three faces are woff2
+files the repo fetched once (`../scripts/fetch-fonts.mjs`) and the API serves
+from `/api/fonts/`, and every URL the page writes is relative. So the guard is
+a line in the sand rather than a list of hashes. It fails the moment a
+`<script src>`, a `<link rel="stylesheet">` or a preload hint for one of them
+points at another origin without `integrity="sha384-…"` and
+`crossorigin="anonymous"`; when a digest is one a browser cannot use (the
+wrong algorithm, hex instead of base64, the wrong number of bytes, or sha256
+alone where sha384 is wanted); when the URL is not pinned to one version,
+because `@latest` and a hash cannot both be true; when it is fetched over
+`http:`; and when a *first-party* file carries a hash, which is a page that
+stops loading the next time the bundle changes. `vite build` writes
+`crossorigin` on the page's own module script and stylesheet — that is how a
+module is always fetched — and the guard reads those as first-party and leaves
+them alone.
+
+The same script computes the hashes, from the bytes that were downloaded
+rather than from a snippet somebody pasted:
+
+```bash
+node frontend/scripts/check-sri.mjs --hash https://cdn.jsdelivr.net/npm/roughjs@4.6.6/dist/rough.min.js --snippet
+node frontend/scripts/check-sri.mjs --hash <url|file> --expect "sha384-…"
+```
+
+`--hash` also reports whether the CDN answered with the CORS header SRI
+depends on: without `Access-Control-Allow-Origin` the browser refuses the file
+whether the digest is right or not, and the answer then is to self-host it,
+the way this repo self-hosts its fonts. `--expect` asks the other question —
+does the hash already written down still match what the CDN serves?
+
+`test:ui` runs the guard over `index.html`, over `frontend-dist/` when there
+is a build, and over the page the dev server serves with Vite's own scripts
+injected; then it turns the guard on itself, because a guard that passes
+everything is worse than no guard. A CDN script with no hash has to fail, one
+changed character in a digest has to fail, different bytes under the same
+digest — the compromise SRI exists for — has to fail, and so do `@latest`,
+`http:`, `crossorigin="use-credentials"` and a first-party file with a hash.
+The digests themselves are held against what `openssl` prints for the same
+bytes.
 
 `test:ui` mounts the real components in jsdom against a real API, then does
 what a person does: reads the sources, renames a heading, adds a word, merges

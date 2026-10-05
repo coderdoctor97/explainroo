@@ -15,6 +15,7 @@ import { startStudioApi } from './api.js';
 import { checkCharset } from '../scripts/check-charset.mjs';
 import { checkDoctype } from '../scripts/check-doctype.mjs';
 import { checkViewport, firstViewportMeta } from '../scripts/check-viewport.mjs';
+import { checkSri, checkSriText, corsReport, digestOf, integrityOf, parseIntegrity, verifyIntegrity } from '../scripts/check-sri.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 
@@ -304,6 +305,135 @@ ok(
   'viewport: the page the dev server serves still carries it',
   /<meta[^>]+name=["']viewport["'][^>]*content=["'][^"']*width=device-width[^"']*initial-scale=1/i.test(servedHtml),
   (/<meta[^>]+name=["']viewport["'][^>]*>/i.exec(servedHtml) || ['missing'])[0],
+);
+
+// ---------- the subresource integrity rule (html/subresource-integrity) ----------
+// The studio loads nothing from anybody else's server. React and roughjs are
+// bundled out of node_modules by Vite, the three faces are woff2 files the
+// repo fetched once and the API serves from /api/fonts/, and every URL the
+// page writes is relative — so there is no hash to put in index.html today.
+// What the rule needs is the guard that keeps it that way: the day a CDN
+// <script> is pasted into the page, this fails with the command that computes
+// the hash, instead of the browser finding out at runtime.
+//
+// The same three readings as the head rules above — the file on disk, the DOM
+// a browser builds out of it, the page the dev server serves — and then the
+// guard is turned on itself, because a guard that passes everything is worse
+// than no guard at all.
+for (const result of checkSri([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  ok(
+    `sri: ${path.relative(ROOT, result.file)} pins every third-party script and stylesheet`,
+    result.problems.length === 0,
+    result.problems[0] || (result.thirdParty.length
+      ? `${result.thirdParty.length} third-party, hashed, crossorigin=anonymous`
+      : `nothing from another origin, ${result.firstParty.length} first-party left alone`),
+  );
+}
+// The DOM asks the question the way a browser would: through the selectors
+// that fetch something. A cross-origin resource here needs both attributes;
+// a first-party one needs neither, and a hash on it would be a page that
+// stops loading the next time the bundle changes.
+const sriTags = [...page.window.document.querySelectorAll('script[src], link[rel~="stylesheet"], link[rel~="modulepreload"]')];
+const sriOrigin = 'http://localhost:5173';
+const fromElsewhere = sriTags.filter((el) => new URL(el.getAttribute('src') || el.getAttribute('href'), sriOrigin).origin !== sriOrigin);
+ok('sri: the DOM sees the resources the page fetches', sriTags.length >= 1, `${sriTags.length} tags`);
+ok(
+  'sri: the DOM sees nothing from another origin',
+  fromElsewhere.length === 0,
+  fromElsewhere.map((el) => el.outerHTML.trim()).join(' ') || 'every script and stylesheet is this origin',
+);
+ok(
+  'sri: the first-party tags carry no hash of their own',
+  sriTags.every((el) => !el.hasAttribute('integrity')),
+  sriTags.find((el) => el.hasAttribute('integrity'))?.outerHTML.trim() || 'none of them do',
+);
+// The dev server puts /@vite/client and the React refresh preamble ahead of
+// the page. Both are this origin, so the guard reads them as first-party and
+// leaves them alone — a dev-only script is not a CDN.
+const servedSri = checkSriText(servedHtml, 'the served page');
+ok(
+  'sri: the page the dev server serves loads nothing from another origin either',
+  servedSri.problems.length === 0 && servedSri.thirdParty.length === 0,
+  servedSri.problems[0] || `${servedSri.resources.length} resources, all first-party`,
+);
+
+// The digests come from node:crypto, so hold them against what openssl prints
+// for the same bytes: a hash that is subtly wrong is a page that does not
+// load, with nothing on the server to say why.
+const KNOWN = Buffer.from('explainroo');
+ok(
+  'sri: sha384 and sha512 of known bytes match openssl',
+  integrityOf(KNOWN, ['sha384', 'sha512'])
+    === 'sha384-phN/o2ivMkLauE0lYr7XkwZdIcdg2Ml32oLZW6lZ2obnnm1sPHo0Gpk+MCxdo9RH'
+    + ' sha512-eIurbrF6k43L/oFMKGyaiYg5N8H87N2oS1/ZK9riHH7ZvfnlQ6VPAMcNvV18rfDb01x97MUMa0rTZCf9BrMrgw==',
+  integrityOf(KNOWN, ['sha384']).slice(0, 20) + '…',
+);
+
+// A correct hash is worth nothing if the CDN will not answer a CORS request:
+// the browser blocks the file either way, and the page loses the library.
+// This is the report --hash prints, asked about all three answers a CDN gives.
+const cors = corsReport(new Headers({ 'access-control-allow-origin': '*', 'timing-allow-origin': '*' }));
+ok('sri: a CDN that sends Access-Control-Allow-Origin can be pinned', cors.usable, cors.notes[0]);
+const noCors = corsReport({ 'content-type': 'application/javascript' });
+ok('sri: a CDN with no CORS header is reported as unusable', !noCors.usable && /self-host/.test(noCors.notes[0]), noCors.notes[0]);
+const badCors = corsReport({ 'access-control-allow-origin': '*', 'access-control-allow-credentials': 'true' });
+ok('sri: allow-origin * with allow-credentials is the combination browsers reject', badCors.notes.some((n) => /reject/.test(n)), badCors.notes.join(' · '));
+
+// ---------- the guard, turned on itself ----------
+// A CDN file, its real bytes, and the hash those bytes produce. Everything
+// below is written the way the rule's canonical snippet is written.
+const CDN = 'https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js';
+const cdnBytes = Buffer.from('/*! jQuery v3.7.1 | (c) OpenJS Foundation | jquery.org/license */\n');
+const cdnHash = digestOf(cdnBytes, 'sha384');
+const shellHtml = (body) => `<!DOCTYPE html>\n<html lang="en">\n  <head>\n    <meta charset="utf-8" />\n${body}\n  </head>\n  <body></body>\n</html>\n`;
+const tag = (attrs) => shellHtml(`    <script src="${CDN}" ${attrs}></script>`);
+
+ok('sri: a pinned, hashed, crossorigin CDN script passes', checkSriText(tag(`integrity="${cdnHash}" crossorigin="anonymous"`), 'pinned').problems.length === 0, checkSriText(tag(`integrity="${cdnHash}" crossorigin="anonymous"`), 'pinned').problems[0]);
+const naked = checkSriText(shellHtml(`    <script src="${CDN}"></script>`), 'naked').problems;
+ok('sri: a CDN script with no integrity is refused', naked.some((p) => /no integrity/.test(p)), naked[0]);
+ok('sri: a CDN script with no crossorigin is refused', naked.some((p) => /no crossorigin/.test(p)), naked.find((p) => /crossorigin/.test(p)));
+// The negative test the rule asks for, done where it can be done honestly: no
+// browser here, so the bytes are changed and the digest asked again, which is
+// precisely the check the browser makes. One character of the hash, or one
+// byte of the file — either way the answer has to be "blocked".
+const tampered = `${cdnHash.slice(0, 8)}${cdnHash[8] === 'A' ? 'B' : 'A'}${cdnHash.slice(9)}`;
+ok('sri: the digest of the real bytes verifies', verifyIntegrity(cdnBytes, cdnHash).verified, verifyIntegrity(cdnBytes, cdnHash).reason);
+ok('sri: one changed character in the digest no longer verifies', !verifyIntegrity(cdnBytes, tampered).verified, verifyIntegrity(cdnBytes, tampered).reason);
+ok(
+  'sri: a CDN serving different bytes under the same hash is caught',
+  !verifyIntegrity(Buffer.from('/*! jQuery v3.7.1, with one line an attacker added */\n'), cdnHash).verified,
+  'this is the compromise SRI exists for',
+);
+// Shapes a browser cannot use, and URLs a hash cannot be true of.
+ok('sri: a digest of the wrong length is refused', parseIntegrity('sha384-tooshort').malformed.length === 1, parseIntegrity('sha384-tooshort').malformed[0]);
+ok(
+  'sri: sha256 alone is refused, sha384 preferred',
+  checkSriText(tag(`integrity="${digestOf(cdnBytes, 'sha256')}" crossorigin="anonymous"`), 'weak').problems.some((p) => /prefer sha384/.test(p)),
+);
+ok(
+  'sri: @latest is refused — the version is pinned before the hash is written',
+  checkSriText(
+    shellHtml(`    <script src="https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js" integrity="${cdnHash}" crossorigin="anonymous"></script>`),
+    'latest',
+  ).problems.some((p) => /not pinned/.test(p)),
+);
+ok(
+  'sri: a plain http: fetch is refused',
+  checkSriText(
+    shellHtml(`    <script src="http://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js" integrity="${cdnHash}" crossorigin="anonymous"></script>`),
+    'http',
+  ).problems.some((p) => /over http:/.test(p)),
+);
+ok(
+  'sri: crossorigin="use-credentials" is refused',
+  checkSriText(tag(`integrity="${cdnHash}" crossorigin="use-credentials"`), 'credentials').problems.some((p) => /must be anonymous/.test(p)),
+);
+ok(
+  'sri: a first-party file with a hash is refused',
+  checkSriText(
+    shellHtml(`    <script type="module" src="/src/main.tsx" integrity="${cdnHash}" crossorigin="anonymous"></script>`),
+    'first-party',
+  ).problems.some((p) => /first-party/.test(p)),
 );
 
 // ---------- the shell ----------
