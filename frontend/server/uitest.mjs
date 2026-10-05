@@ -17,6 +17,7 @@ import { checkCharset } from '../scripts/check-charset.mjs';
 import { checkDoctype } from '../scripts/check-doctype.mjs';
 import { checkViewport, firstViewportMeta } from '../scripts/check-viewport.mjs';
 import { checkSri, checkSriText } from '../scripts/check-sri.mjs';
+import { checkUniqueIds, checkUniqueIdsText, duplicateIds } from '../scripts/check-unique-ids.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 
@@ -396,9 +397,101 @@ ok(
   `${sameOrigin.resources.length} external resources`,
 );
 
+// ---------- the unique-id rule (html/unique-id) ----------
+// A duplicate id is invalid HTML and quietly breaks everything that points at
+// an element by name: getElementById stops at the first one, a <label for>
+// moves the wrong control, aria-labelledby reads the wrong text, an "#anchor"
+// lands nowhere. Three readings, the same shape as the rules above: the file
+// on disk, the component sources that write documents (a hardcoded id becomes
+// a duplicate the moment the component is rendered twice), and — further down,
+// as the app is driven — the mounted page itself, which is the only place a
+// duplicate can really exist. axe asks the same question with duplicate-id.
+for (const result of checkUniqueIds([pageFile, path.join(ROOT, 'frontend', 'src'), ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  const summary = result.kind === 'document'
+    ? `${result.ids.length} id${result.ids.length === 1 ? '' : 's'}${result.warnings.length ? `, ${result.warnings.length} to check` : ''}`
+    : 'no hardcoded ids';
+  ok(
+    `unique ids: ${path.relative(ROOT, result.file)} holds the rule`,
+    result.problems.length === 0,
+    result.problems[0] || summary,
+  );
+}
+const servedIds = checkUniqueIdsText(servedHtml, { name: 'served.html' });
+ok(
+  'unique ids: the page the dev server serves stays unique',
+  servedIds.problems.length === 0,
+  servedIds.problems[0] || `${servedIds.ids.length} id${servedIds.ids.length === 1 ? '' : 's'}`,
+);
+
+const idGood = checkUniqueIdsText('<label for="name">Name</label>\n<input id="name" type="text">', { name: 'good.html' });
+ok('unique ids: a labelled control passes', idGood.problems.length === 0 && idGood.warnings.length === 0);
+const idBad = checkUniqueIdsText('<div id="content">one</div>\n<div id="content">two</div>', { name: 'bad.html' });
+ok(
+  'unique ids: a repeated id is caught, with both lines',
+  idBad.problems.length === 1 && /appears 2 times/.test(idBad.problems[0]) && /line 1 and line 2/.test(idBad.problems[0]),
+  idBad.problems[0],
+);
+const idComment = checkUniqueIdsText('<!-- <div id="aside"></div> -->\n<div id="aside"></div>', { name: 'comment.html' });
+ok('unique ids: an id inside a comment is not an id', idComment.problems.length === 0 && idComment.ids.length === 1);
+const idHidden = checkUniqueIdsText('<div id="tablet" data-id="tablet"></div>', { name: 'attributes.html' });
+ok('unique ids: data-id is not id', idHidden.problems.length === 0 && idHidden.ids.length === 1);
+const idTemplate = checkUniqueIdsText('<div id="cell"></div>\n<template><div id="cell"></div></template>', { name: 'template.html' });
+ok(
+  'unique ids: template content is its own document until it is cloned',
+  idTemplate.problems.length === 0 && idTemplate.ids.length === 2,
+  idTemplate.problems[0] || `${idTemplate.ids.length} ids in 2 scopes`,
+);
+const idTemplateDup = checkUniqueIdsText('<template><div id="row"></div><span id="row"></span></template>', { name: 'template2.html' });
+ok(
+  'unique ids: a template that repeats itself is still caught',
+  idTemplateDup.problems.length === 1 && /<template> 1/.test(idTemplateDup.problems[0]),
+  idTemplateDup.problems[0],
+);
+const idEmpty = checkUniqueIdsText('<div id="">empty</div>', { name: 'empty.html' });
+ok('unique ids: an empty id is rejected', idEmpty.problems.length === 1 && /is empty/.test(idEmpty.problems[0]), idEmpty.problems[0]);
+const idPointer = checkUniqueIdsText('<label for="missing">Name</label>', { name: 'pointer.html' });
+ok(
+  'unique ids: a label pointing at no id is reported for review',
+  idPointer.problems.length === 0 && idPointer.warnings.length === 1 && /points at no id/.test(idPointer.warnings[0]),
+  idPointer.warnings[0],
+);
+const idComponent = checkUniqueIdsText('<input id="field" />\n<input id="field" />', { name: 'Form.tsx' });
+ok(
+  'unique ids: a component repeating a literal id is caught',
+  idComponent.problems.length === 1 && /written 2 times/.test(idComponent.problems[0]),
+  idComponent.problems[0],
+);
+const idGenerated = checkUniqueIdsText("const id = useId();\n<label htmlFor={id}>Name</label>\n<input id={id} />", { name: 'Widget.tsx' });
+ok('unique ids: an id from useId() passes', idGenerated.problems.length === 0, idGenerated.problems[0]);
+const idExempt = checkUniqueIdsText('<div id="shell" /> // unique-id-ok: main.tsx renders this once', { name: 'App.tsx' });
+ok('unique ids: a line that says unique-id-ok is allowed', idExempt.problems.length === 0, idExempt.problems[0]);
+
+// The live page, checked at each step the app is driven through. duplicateIds
+// is the walk axe's duplicate-id check does; the fixture proves the walk finds
+// duplicates, so a clean page is a real result and not an empty one.
+const idFixture = new JSDOM('<div id="dup"></div><span id="dup"></span><i id="single"></i>').window.document;
+const idFixtureFound = duplicateIds(idFixture);
+ok(
+  'unique ids: the DOM walk finds a duplicate',
+  idFixtureFound.length === 1 && idFixtureFound[0].id === 'dup' && idFixtureFound[0].count === 2,
+  idFixtureFound.map((d) => `${d.id}×${d.count}`).join(', '),
+);
+const idPages = [];
+function uniqueIdsOn(step) {
+  idPages.push(step);
+  const dupes = duplicateIds(window.document);
+  const seen = $$('[id]');
+  ok(
+    `unique ids: ${step} — ${seen.length} id${seen.length === 1 ? '' : 's'} on the page, no duplicates`,
+    dupes.length === 0 && seen.length > 0,
+    dupes.length ? dupes.map((d) => `${d.id}×${d.count}`).join(', ') : seen.map((el) => `#${el.id}`).join(' '),
+  );
+}
+
 // ---------- the shell ----------
 await until(async () => (!!$('.app') ? true : null), { tries: 40 });
 ok('the app mounts', !!$('.app'), $('.app') ? 'workbench' : shot());
+uniqueIdsOn('Sources');
 ok('the project name is in the masthead', text().includes('What a cache does'), shot());
 ok('the rail lists the four steps', ['Sources', 'Scene plan', 'Look', 'Build and render'].every((s) => text().includes(s)));
 ok('the readout knows the three files arrived', /files\s*3 \/ 3/.test(text()), text().match(/files[^A-Z]*/)?.[0]);
@@ -415,6 +508,7 @@ await click(byText('.rail button', 'Scene plan'));
 ok('the plan has one row per scene', $$('.scenes li.scene').length >= 2, `${$$('.scenes li.scene').length} rows`);
 const rows = $$('.scenes li.scene');
 ok('scene rows show their text and their timing', rows.length >= 2 && /\d+:\d\d/.test(rows[0].textContent), rows[0]?.textContent.replace(/\s+/g, ' ').slice(0, 90));
+uniqueIdsOn('Scene plan');
 
 const heading = $('.scenes li.scene input[type="text"]');
 await setField(heading, 'Cached copies are close by');
@@ -453,6 +547,7 @@ const savedStyle = await until(async () => (await call(`/projects/${id}`)).studi
 ok('choosing a look is saved', !!savedStyle);
 ok('the frame preview is drawn in that look', !!$('.frame'), $('.frame')?.style.background);
 ok('the swatches follow the look', $$('.swatch').length >= 3, `${$$('.swatch').length} swatches`);
+uniqueIdsOn('Look');
 
 await setField($('input[aria-label="pace"]'), '1.25');
 const savedPace = await until(async () => (await call(`/projects/${id}`)).studio.look.pace === 1.25);
@@ -483,6 +578,7 @@ ok(
   !!refreshed && /\d\s?wav/.test(readout),
   refreshed ? readout.slice(0, 120) : `${readout.slice(0, 90)} · banner "${$('.main .err')?.textContent?.slice(0, 60) || 'none'}" · traffic ${traffic.slice(-4).join(' , ')}`,
 );
+uniqueIdsOn('Build and render');
 
 // ---------- the generated project, through the same client the page uses ----------
 const report = (await projectApi.state(id)).status.report;
@@ -500,6 +596,21 @@ ok(
   'a refresh keeps the project, the files and the look',
   after.includes('What a cache does') && /files3 \/ 3/.test(after) && after.includes(before.includes('Cached copies') ? 'Cached copies' : 'cache'),
   `look ${(await call(`/projects/${id}`)).studio.look.style}`,
+);
+
+// The last reading of the unique-id rule: the page was scanned on all four
+// steps, and the one id the shell owns still resolves to exactly one element,
+// which is what the page's own script asks for (main.tsx: getElementById).
+uniqueIdsOn('after a refresh');
+ok(
+  'unique ids: the page was checked at every step',
+  ['Sources', 'Scene plan', 'Look', 'Build and render', 'after a refresh'].every((step) => idPages.includes(step)),
+  idPages.join(', '),
+);
+ok(
+  'unique ids: #root still resolves to exactly one element',
+  window.document.querySelectorAll('#root').length === 1 && window.document.getElementById('root') === window.document.querySelector('#root'),
+  `${window.document.querySelectorAll('#root').length} element${window.document.querySelectorAll('#root').length === 1 ? '' : 's'} match #root`,
 );
 
 ok('no uncaught errors in the page', problems.length === 0, problems.slice(0, 2).join(' | ').slice(0, 200));
