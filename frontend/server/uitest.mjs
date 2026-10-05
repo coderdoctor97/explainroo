@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { startStudioApi } from './api.js';
 import { checkCharset } from '../scripts/check-charset.mjs';
+import { checkViewport, firstViewportMeta } from '../scripts/check-viewport.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 
@@ -233,6 +234,49 @@ fake.setHeader('Content-Type', 'text/html');
 ok('charset: the served page is sent as text/html; charset=utf-8', fake.headers['Content-Type'] === 'text/html; charset=utf-8', fake.headers['Content-Type']);
 fake.setHeader('Content-Type', 'text/javascript');
 ok('charset: other content types are left alone', fake.headers['Content-Type'] === 'text/javascript', fake.headers['Content-Type']);
+
+// ---------- the viewport rule (html/viewport, css/viewport-zoom) ----------
+// Same two readings as the charset rule above: the file on disk through the
+// guard, then the DOM a browser builds out of it. The build output is checked
+// too, when there is one (npm run build). The tag must stay minimal: no
+// user-scalable=no and no maximum-scale=1, which stop pinch zoom (WCAG 2.1
+// SC 1.4.4), and no second tag left behind to fight the first.
+for (const result of checkViewport([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  ok(
+    `viewport: ${path.relative(ROOT, result.file)} sets the responsive viewport tag, zoom included`,
+    result.problems.length === 0,
+    result.problems[0] || result.content,
+  );
+}
+const viewports = head.querySelectorAll('meta[name="viewport"]');
+ok('viewport: exactly one <meta name="viewport"> in <head>', viewports.length === 1, `${viewports.length} tags`);
+const viewport = viewports.length === 1 ? (viewports[0].getAttribute('content') || '') : '';
+ok(
+  'viewport: content is "width=device-width, initial-scale=1"',
+  viewport.trim() === 'width=device-width, initial-scale=1',
+  viewports[0] ? viewports[0].outerHTML.trim() : 'no viewport tag',
+);
+ok(
+  'viewport: zoom is not disabled (no user-scalable=no, no maximum-scale)',
+  !/user-scalable\s*=\s*(no|0|false|off)/i.test(viewport) && !/maximum-scale\s*=/i.test(viewport),
+  viewport || 'no viewport tag',
+);
+// The bytes and the DOM must tell the same story: the guard reads the file,
+// the browser reads the document.
+const fromBytes = firstViewportMeta(fs.readFileSync(pageFile, 'utf8'));
+ok(
+  'viewport: the bytes and the DOM agree on the tag',
+  !!fromBytes
+    && fromBytes.content.width === 'device-width'
+    && fromBytes.content['initial-scale'] === '1'
+    && fromBytes.raw.includes(viewport.trim()),
+  fromBytes ? fromBytes.raw.trim() : 'not found in the file',
+);
+ok(
+  'viewport: the page the dev server serves still carries it',
+  /<meta[^>]+name=["']viewport["'][^>]*content=["'][^"']*width=device-width[^"']*initial-scale=1/i.test(servedHtml),
+  (/<meta[^>]+name=["']viewport["'][^>]*>/i.exec(servedHtml) || ['missing'])[0],
+);
 
 // ---------- the shell ----------
 await until(async () => (!!$('.app') ? true : null), { tries: 40 });

@@ -107,6 +107,7 @@ frontend/
   dev.mjs               starts the API, then Vite, and wires /api to it
   scripts/
     check-charset.mjs   the html/charset guard: UTF-8 first in <head>, no BOM
+    check-viewport.mjs  the html/viewport guard: one responsive viewport, zoom left on
   src/
     api.ts              one typed function per route; all URLs are relative
     App.tsx             the shell: projects, steps, transport, persistence
@@ -121,7 +122,7 @@ frontend/
     build.js            analyze / build / status / doctor
     api.js              the HTTP API (127.0.0.1 only, reached through /api)
     selftest.mjs        npm run test:studio — 25 checks, no browser
-    uitest.mjs          npm run test:ui — 38 checks, React in jsdom, real API, the charset guard
+    uitest.mjs          npm run test:ui — 45 checks, React in jsdom, real API, the head guards
 ```
 
 ## Tests
@@ -133,6 +134,7 @@ npm run test:studio    # the back end: parsing, planning, voice cache, generatio
 npm run test:ui        # the front end: mount the app, click it, read the DOM
 npm run build          # bundle the page into frontend-dist/
 node frontend/scripts/check-charset.mjs  # the charset guard alone, every HTML file
+node frontend/scripts/check-viewport.mjs # the viewport guard alone, every HTML file
 ```
 
 The charset guard is its own script because it has to run on a checkout with no
@@ -143,6 +145,14 @@ declaration, if it starts after the first 1024 bytes, if a legacy
 `<meta http-equiv="Content-Type">` is left, or if the file starts with a BOM.
 `test:ui` runs it too, checks the same questions against a real DOM, and checks
 the page the dev server actually serves.
+
+The viewport guard follows the same shape for the html/viewport and
+css/viewport-zoom rules: it reads `<meta name="viewport">` and fails when the
+tag is missing, when there is more than one, when it is not in `<head>`, when
+it does not start from `width=device-width, initial-scale=1` (`1.0` is the same
+number), when `user-scalable=no` is set, or when `maximum-scale` caps zoom
+below 2. The two rules are one line in one file, so a regression is a one-line
+mistake — this is the guard for it.
 
 `test:ui` mounts the real components in jsdom against a real API, then does
 what a person does: reads the sources, renames a heading, adds a word, merges

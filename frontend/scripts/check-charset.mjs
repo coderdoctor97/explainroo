@@ -52,7 +52,9 @@ function readTag(text, start) {
 }
 
 // Every tag in the document, in order, with the index it starts at.
-function scanTags(text) {
+// Exported so the other head rules (check-viewport.mjs) read the document the
+// same way this one does.
+export function scanTags(text) {
   const tags = [];
   let i = 0;
   while (i < text.length) {
@@ -89,7 +91,7 @@ function scanTags(text) {
 
 // The head: the real element if there is one, otherwise the implied one, which
 // by the spec is everything before <body>.
-function headOf(tags, text) {
+export function headOf(tags, text) {
   const open = tags.find((t) => t.name === 'head' && !t.closing);
   if (open) {
     const close = tags.find((t) => t.name === 'head' && t.closing && t.index > open.index);
