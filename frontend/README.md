@@ -105,6 +105,11 @@ icon files.
 frontend/
   index.html            the page shell
   dev.mjs               starts the API, then Vite, and wires /api to it
+  scripts/
+    check-charset.mjs   the html/charset guard: UTF-8 first in <head>, no BOM
+    check-viewport.mjs  the html/viewport guard: one responsive viewport, zoom left on
+    check-sri.mjs       the html/subresource-integrity guard for external scripts and stylesheets
+    check-unique-ids.mjs the html/unique-id guard: no duplicate ids in a file or a page
   src/
     api.ts              one typed function per route; all URLs are relative
     App.tsx             the shell: projects, steps, transport, persistence
@@ -118,8 +123,8 @@ frontend/
     generate.js         script.md, scenes.js, video.json
     build.js            analyze / build / status / doctor
     api.js              the HTTP API (127.0.0.1 only, reached through /api)
-    selftest.mjs        npm run test:studio — 25 checks, no browser
-    uitest.mjs          npm run test:ui — 29 checks, React in jsdom, real API
+    selftest.mjs        npm run test:studio — 31 checks, no browser
+    uitest.mjs          npm run test:ui — 87 checks (92 with a build), React in jsdom, real API, the page guards
 ```
 
 ## Tests
@@ -130,7 +135,68 @@ npm run test           # the repo's own tests
 npm run test:studio    # the back end: parsing, planning, voice cache, generation
 npm run test:ui        # the front end: mount the app, click it, read the DOM
 npm run build          # bundle the page into frontend-dist/
+node frontend/scripts/check-charset.mjs  # the charset guard alone, every HTML file
+node frontend/scripts/check-viewport.mjs # the viewport guard alone, every HTML file
+node frontend/scripts/check-sri.mjs      # SRI guard, source HTML + frontend-dist/ when built
+node frontend/scripts/check-unique-ids.mjs # unique-id guard, HTML + component sources
 ```
+
+The charset guard is its own script because it has to run on a checkout with no
+dependencies installed: it reads `<meta charset="utf-8">` out of every HTML file
+the studio ships — `index.html`, and `frontend-dist/` when there is a build —
+and fails if it is not the first element in `<head>`, if there is more than one
+declaration, if it starts after the first 1024 bytes, if a legacy
+`<meta http-equiv="Content-Type">` is left, or if the file starts with a BOM.
+`test:ui` runs it too, checks the same questions against a real DOM, and checks
+the page the dev server actually serves.
+
+The viewport guard follows the same shape for the html/viewport and
+css/viewport-zoom rules: it reads `<meta name="viewport">` and fails when the
+tag is missing, when there is more than one, when it is not in `<head>`, when
+it does not start from `width=device-width, initial-scale=1` (`1.0` is the same
+number), when `user-scalable=no` is set, or when `maximum-scale` caps zoom
+below 2. The two rules are one line in one file, so a regression is a one-line
+mistake — this is the guard for it.
+
+The SRI guard walks source and built HTML for cross-origin `<script src>` and
+`<link rel="stylesheet" href>` tags. Every such tag must have well-formed
+SHA-256, SHA-384 or SHA-512 digest metadata plus `crossorigin="anonymous"`;
+SHA-384 is preferred. The guard checks markup and digest format, not that a
+hash matches bytes fetched from a CDN. When adding a CDN asset, pin its version
+and verify its hash and CORS response. Relative assets remain exempt. As static
+HTML does not identify its deployment host, absolute HTTP(S) URLs are treated
+as external by default; pass `--origin https://your-host.example` (or set
+`SRI_ORIGIN`) when scanning HTML that uses absolute same-origin asset URLs.
+`test:ui` runs positive and negative fixtures as well as scanning the
+checked-in and built HTML. At present the studio has no external script or
+stylesheet URLs: Vite bundles and `/api/fonts/...` requests are same-origin, so
+there are no CDN hashes or CORS headers to maintain.
+
+The unique-id guard is the html/unique-id rule, and it reads a file the same
+way the head guards do. In an HTML document no `id` value may appear twice; ids
+inside a `<template>` are compared with each other and not with the document,
+because the spec — and html-validate's `no-dup-id` — treat template content as
+a document of its own until it is cloned; `id=""` is rejected because nothing
+can reference it. A component or template file (`jsx`, `tsx`, `vue`, `svelte`,
+`astro`, `hbs`, `ejs`, `pug`, `php`, `erb`) may not hardcode an id: the same
+component rendered twice writes the same id twice, which is how duplicates
+reach a page. Generate it instead — React's `useId()`, Vue's `useId()`, or a
+counter memoized per instance — accept an optional `id` prop, and build the
+dependent ids from it (`${id}-label`, `${id}-input`); an element that really is
+rendered once can say `unique-id-ok` on its line. References (`for` on a
+label or output, `aria-labelledby`, `aria-describedby`, `aria-controls`,
+`aria-owns`, `aria-activedescendant`, `aria-errormessage`, `href="#…"`) are
+warnings when they match no id or more than one, since script may still fill
+them in. `test:ui` scans `index.html`, the built page, the dev-served page and
+every component, runs positive and negative fixtures, then walks the DOM of the
+mounted app at each of the four steps with `duplicateIds()` — the same question
+axe's `duplicate-id` check asks, and the walk is proved to find a duplicate
+before it is trusted. The walk is in the guard rather than a new dependency
+because axe's duplicate-id rules are deprecated and disabled in current
+axe-core, and the studio ships no linter; the rule is two functions of plain
+JavaScript. It is wired into `npm run test:ui` — the studio's own page test —
+so the rule stays inside `frontend/` like the guards before it, and runs with
+`npm run test:ui` on any checkout and in any CI that runs the test suite.
 
 `test:ui` mounts the real components in jsdom against a real API, then does
 what a person does: reads the sources, renames a heading, adds a word, merges
