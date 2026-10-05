@@ -98,13 +98,21 @@ function toAudioBuffer(L, R, sampleRate) {
 }
 
 // Renders one synth into (L, R), optionally through a compressor and gain curves.
-function renderInto(syn, L, R, { compressor = null, gains = [] } = {}) {
+function renderInto(syn, L, R, { compressor = null, gains = [], onProgress = null, range = [0, 1] } = {}) {
   const n = L.length;
   const bl = new Float32Array(BLOCK);
   const br = new Float32Array(BLOCK);
   const g = gains.map(() => new Float32Array(BLOCK));
   gains.forEach((e) => e.begin(syn.sr, 0));
+  let lastPct = -1;
   for (let i0 = 0; i0 < n; i0 += BLOCK) {
+    if (onProgress) {
+      const pct = Math.floor((i0 / n) * 100);
+      if (pct !== lastPct) {
+        lastPct = pct;
+        onProgress(range[0] + (range[1] - range[0]) * (i0 / n));
+      }
+    }
     const cnt = Math.min(BLOCK, n - i0);
     bl.fill(0);
     br.fill(0);
@@ -130,10 +138,20 @@ export async function renderSoundtrack(opts = {}) {
     sfx = [],
     scenes = [],
     sfxVolume = 1,
+    onProgress = null,
   } = opts;
   if (!Number.isFinite(duration) || duration <= 0) {
     throw new Error('renderSoundtrack: duration must be a positive number of seconds');
   }
+  const step = (p) => {
+    if (typeof onProgress !== 'function') return;
+    try {
+      onProgress(Math.max(0, Math.min(1, p)));
+    } catch {
+      /* progress must never break the mix */
+    }
+  };
+  step(0);
   validateSfx(sfx);
   const plan = music ? musicPlan(music) : null; // throws early on a bad style or key
 
@@ -144,7 +162,8 @@ export async function renderSoundtrack(opts = {}) {
 
   // narration: straight into the mix, unprocessed
   const cache = new Map();
-  for (const v of voice) {
+  for (let vi = 0; vi < voice.length; vi++) {
+    const v = voice[vi];
     const data = await loadVoice(v, sr, cache);
     const gain = v.gain == null ? 1 : Number(v.gain);
     const at = Math.round((Number(v.start) || 0) * sr);
@@ -155,6 +174,7 @@ export async function renderSoundtrack(opts = {}) {
       L[at + i] += s;
       R[at + i] += s;
     }
+    if (voice.length) step(0.15 * ((vi + 1) / voice.length));
   }
 
   // music: glue compressor, level with fades, ducked under narration
@@ -164,18 +184,22 @@ export async function renderSoundtrack(opts = {}) {
     renderInto(synth, L, R, {
       compressor: new Compressor(sr, { threshold: -18, ratio: 2, knee: 10, attack: 0.02, release: 0.3 }),
       gains: [levelEnv(dbToGain(MUSIC_BASE_DB + plan.mixDb) * (volume / 0.5), duration), duckEnv(voiceSpans)],
+      onProgress: step,
+      range: [0.15, 0.75],
     });
   }
+  step(0.75);
 
   // sound effects with a little room, pitched ones in the music key
   if (sfx.length) {
     const syn = new Synth(sr, length, { reverb: { room: 0.45, damp: 0.5, preDelay: 0.006, lowCut: 300 }, reverbLevel: 0.25 });
     const lane = syn.lane({ stereo: true, reverb: 1 });
     scheduleSfx(syn, lane, sfx, { tonic: 60 + (plan ? plan.keyRoot : 0), duration, volume: dbToGain(SFX_BASE_DB) * Math.max(0, Number(sfxVolume)) });
-    renderInto(syn, L, R);
+    renderInto(syn, L, R, { onProgress: step, range: [0.75, 0.9] });
   }
 
   limitInPlace([L, R], sr, { ceilingDb: -1 });
   fadeEdges([L, R], sr);
+  step(1);
   return toAudioBuffer(L, R, sr);
 }

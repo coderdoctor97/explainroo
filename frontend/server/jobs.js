@@ -20,6 +20,8 @@ export function startJob({ projectId, kind, label, run }) {
     label,
     status: 'running',
     lines: [],
+    progress: null,
+    updatedAt: Date.now(),
     startedAt: Date.now(),
     endedAt: null,
     result: null,
@@ -31,6 +33,7 @@ export function startJob({ projectId, kind, label, run }) {
     const line = String(msg);
     job.lines.push(line);
     if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES);
+    job.updatedAt = Date.now();
     if (file) {
       try {
         fs.appendFileSync(file, `${line}\n`);
@@ -40,11 +43,34 @@ export function startJob({ projectId, kind, label, run }) {
     }
   };
   job.log = log;
+  // Live progress for the page's progress bar. run() gets it as the second
+  // argument: report({ phase, done, total }). It never throws, so a progress
+  // update can never break the job itself.
+  const report = (p) => {
+    try {
+      if (!p || typeof p !== 'object') return;
+      const done = Number(p.done);
+      const total = Number(p.total);
+      const percent =
+        Number.isFinite(done) && Number.isFinite(total) && total > 0
+          ? Math.max(0, Math.min(1, done / total))
+          : null;
+      job.progress = {
+        phase: String(p.phase || p.label || kind),
+        done: Number.isFinite(done) ? done : null,
+        total: Number.isFinite(total) ? total : null,
+        percent,
+        detail: p.detail != null ? String(p.detail) : null,
+      };
+      job.updatedAt = Date.now();
+    } catch {
+      /* progress is best effort */
+    }
+  };
+  job.report = report;
 
   Promise.resolve()
-    .then(() => run(log, (result) => {
-      job.result = result;
-    }))
+    .then(() => run(log, report))
     .then((result) => {
       job.status = 'done';
       job.result = result ?? job.result;
@@ -85,6 +111,8 @@ export function publicJob(job) {
     result: job.result,
     startedAt: job.startedAt,
     endedAt: job.endedAt,
+    updatedAt: job.updatedAt || null,
+    progress: job.progress || null,
     lines: job.lines,
   };
 }

@@ -249,7 +249,7 @@ export function startStudioApi({ port = 4318, host = '127.0.0.1' } = {}) {
           projectId: id,
           kind: 'build',
           label: 'Build project',
-          run: (log) => buildProject(id, log),
+          run: (log, report) => buildProject(id, log, report),
         });
         return json(res, 202, publicJob(job));
       }
@@ -260,11 +260,11 @@ export function startStudioApi({ port = 4318, host = '127.0.0.1' } = {}) {
           projectId: id,
           kind: 'render',
           label: body.draft ? 'Render draft' : 'Render video',
-          run: async (log) => {
-            buildProject(id, log);
+          run: async (log, report) => {
+            buildProject(id, log, report);
             const project = loadVideoProject(id);
             const { render } = await import('../../src/render.js');
-            const r = await render(project, { log, draft: !!body.draft, workers: body.workers, from: body.from, to: body.to });
+            const r = await render(project, { log, onProgress: report, draft: !!body.draft, workers: body.workers, from: body.from, to: body.to });
             const rel = path.relative(project.dir, r.out).split(path.sep).join('/');
             return { ...r, out: rel, url: `/api/projects/${id}/file?path=${encodeURIComponent(rel)}` };
           },
@@ -277,11 +277,13 @@ export function startStudioApi({ port = 4318, host = '127.0.0.1' } = {}) {
           projectId: id,
           kind: 'check',
           label: 'Check the video',
-          run: async (log) => {
-            buildProject(id, log);
+          run: async (log, report) => {
+            buildProject(id, log, report);
             const project = loadVideoProject(id);
             const { check } = await import('../../src/qa.js');
+            report({ phase: 'check', done: 0, total: 1 });
             const r = await check(project, { log });
+            report({ phase: 'check', done: 1, total: 1 });
             log(`${r.issues.length} finding(s) in ${r.scenes} scenes`);
             return r;
           },
@@ -296,11 +298,13 @@ export function startStudioApi({ port = 4318, host = '127.0.0.1' } = {}) {
           projectId: id,
           kind: 'still',
           label: 'Save stills',
-          run: async (log) => {
-            buildProject(id, log);
+          run: async (log, report) => {
+            buildProject(id, log, report);
             const project = loadVideoProject(id);
             const { stills } = await import('../../src/qa.js');
+            report({ phase: 'stills', done: 0, total: 1 });
             const list = await stills(project, specs, { log });
+            report({ phase: 'stills', done: 1, total: 1 });
             const shots = list.map((x) => ({ ...x, url: `/api/projects/${id}/file?path=${encodeURIComponent(path.relative(project.dir, x.file).split(path.sep).join('/'))}` }));
             log(`${shots.length} still(s)`);
             return { shots };

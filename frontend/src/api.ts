@@ -134,6 +134,14 @@ export type ProjectSummary = {
 export type DoctorRow = { name: string; ok: boolean; detail: string; need?: string; optional?: boolean };
 export type Doctor = { rows: DoctorRow[]; ready: boolean; platform: string };
 
+export type JobProgress = {
+  phase: string;
+  done: number | null;
+  total: number | null;
+  percent: number | null;
+  detail: string | null;
+};
+
 export type Job = {
   id: string;
   projectId: string;
@@ -144,6 +152,8 @@ export type Job = {
   result: unknown;
   startedAt: number;
   endedAt: number | null;
+  updatedAt: number | null;
+  progress: JobProgress | null;
   lines: string[];
 };
 

@@ -27,6 +27,9 @@ export function run(bin, args, { input } = {}) {
       if (code === 0) resolve({ stdout: out, stderr: err });
       else reject(new Error(`${bin} ${args.slice(0, 6).join(' ')} ... failed (${code}):\n${err.split('\n').slice(-12).join('\n')}`));
     });
+    // The child can exit before reading stdin. Without this the EPIPE is an
+    // unhandled Socket 'error' that kills the whole process ("write EOF").
+    p.stdin.on('error', () => {});
     if (input) p.stdin.end(input);
     else p.stdin.end();
   });
@@ -36,30 +39,64 @@ export function ffmpeg(args, opts) {
   return run(ffmpegPath(), ['-hide_banner', '-y', ...args], opts);
 }
 
-// A long-running encoder fed with JPEG frames on stdin.
-export function frameEncoder({ fps, out, draft }) {
+// A long-running encoder fed with JPEG frames on stdin. `threads` caps x264
+// frame threads: 6 encoders at the default (all cores each) exhausts Windows
+// commit and x264 dies with "malloc of size ... failed".
+export function frameEncoder({ fps, out, draft, threads = 0 }) {
   const args = [
     '-hide_banner', '-y', '-loglevel', 'error',
     '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'mjpeg', '-i', '-',
     '-c:v', 'libx264', '-preset', draft ? 'veryfast' : 'medium', '-crf', draft ? '24' : '17',
     '-tune', 'animation', '-pix_fmt', 'yuv420p', '-r', String(fps), '-g', String(fps * 2),
+    // medium's 40-frame lookahead holds ~350MB of frame buffers per 1080p
+    // encoder; 4+ of those exhaust Windows commit ("malloc of size ...
+    // failed"). 10 (what veryfast uses) changes rate control slightly,
+    // not quality at the same crf.
+    '-x264-params', 'rc-lookahead=10',
+    ...(threads > 0 ? ['-threads', String(threads)] : []),
     out,
   ];
   const p = spawn(ffmpegPath(), args, { stdio: ['pipe', 'ignore', 'pipe'] });
   let err = '';
+  let dead = null;
   p.stderr.on('data', (d) => (err += d));
+  // ffmpeg can die mid-render (OOM, bad frame, disk). Its stdin then closes;
+  // writes must fail as rejections, never as an unhandled Socket 'error'
+  // ("write EOF") that kills the studio server, and never hang on 'drain'.
+  p.stdin.on('error', (e) => {
+    dead = dead || e;
+  });
   const done = new Promise((resolve, reject) => {
     p.on('error', (e) => reject(new Error(`ffmpeg could not start: ${e.message}`)));
     p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg encoder failed (${code}): ${err.slice(-800)}`))));
   });
   done.catch(() => {});
+  const died = (e) => new Error(`ffmpeg encoder died${e && e.message ? ` (${e.message})` : ''}: ${err.slice(-800) || 'no output'}`);
   return {
     write(buf) {
+      if (dead || p.stdin.destroyed) return Promise.reject(died(dead));
       if (p.stdin.write(buf)) return Promise.resolve();
-      return new Promise((r) => p.stdin.once('drain', r));
+      return new Promise((resolve, reject) => {
+        const cleanup = () => {
+          p.stdin.off('drain', ok);
+          p.stdin.off('error', fail);
+          p.stdin.off('close', fail);
+        };
+        const ok = () => {
+          cleanup();
+          resolve();
+        };
+        const fail = (e) => {
+          cleanup();
+          reject(died(e));
+        };
+        p.stdin.on('drain', ok);
+        p.stdin.on('error', fail);
+        p.stdin.on('close', fail);
+      });
     },
     async close() {
-      p.stdin.end();
+      if (!dead && !p.stdin.destroyed) p.stdin.end();
       await done;
     },
     kill() {

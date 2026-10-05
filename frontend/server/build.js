@@ -66,7 +66,8 @@ function titleFor(studio, plan) {
  * Writes the explainroo project for one studio project: everything under
  * video/ is a normal explainroo project the command line can use too.
  */
-export function buildProject(id, log = () => {}) {
+export function buildProject(id, log = () => {}, onProgress = null) {
+  const reportProgress = typeof onProgress === 'function' ? onProgress : null;
   const { paths, studio, plan, audio } = analyze(id);
   if (!audio) throw new StudioError('upload your voice-over first (drop the .wav in the "voice-over" box)');
   const title = titleFor(studio, plan);
@@ -76,6 +77,7 @@ export function buildProject(id, log = () => {}) {
   const config = videoConfig({ title, look: studio.look, styleId: studio.look.style });
   writeVideoJson(videoDir, config);
 
+  if (reportProgress) reportProgress({ phase: 'script', done: 0, total: plan.scenes.length + 2 });
   log('writing script.md');
   writeScript(videoDir, plan, title);
 
@@ -89,14 +91,18 @@ export function buildProject(id, log = () => {}) {
   const missing = assigned.filter((name) => !supplied.includes(name));
   if (missing.length) log(`waiting for ${missing.length} image(s): ${missing.join(', ')}`);
 
-  log('cutting the voice-over into scene audio');
+  log(`cutting the voice-over into scene audio (${plan.scenes.length} scenes)`);
   const before = {
     dir: videoDir,
     paths: { voice: paths.voiceDir, script: path.join(videoDir, 'script.md'), build: paths.build, out: paths.out },
   };
-  const voice = writeVoiceCache(before, plan, audio, config);
+  const voice = writeVoiceCache(before, plan, audio, config, {
+    log,
+    onProgress: reportProgress ? (p) => reportProgress({ phase: 'voice', done: p.done, total: p.total, detail: p.detail }) : null,
+  });
 
   log('writing scenes.js');
+  if (reportProgress) reportProgress({ phase: 'scenes', done: plan.scenes.length + 1, total: plan.scenes.length + 2 });
   writeScenes(videoDir, scenesSource({ plan, voice: voice.scenes, look: studio.look, title, assets: supplied }));
 
   // Load it the way the engine will; a problem here is a problem the render

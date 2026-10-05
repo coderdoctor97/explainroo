@@ -360,15 +360,18 @@ export function writeScript(projectDir, plan, title) {
  * build/voice/<scene>.json the voice model would have written, so the rest of
  * explainroo cannot tell the difference.
  */
-export function writeVoiceCache(project, plan, audio, config) {
+export function writeVoiceCache(project, plan, audio, config, opts = {}) {
   const { paths } = project;
+  const log = typeof opts.log === 'function' ? opts.log : () => {};
+  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null;
   fs.mkdirSync(paths.voice, { recursive: true });
   const parsedScenes = parseScript(fs.readFileSync(paths.script, 'utf8')).scenes;
   const byId = new Map(parsedScenes.map((s) => [s.id, s]));
   const info = {};
   let total = 0;
 
-  for (const scene of plan.scenes) {
+  for (let si = 0; si < plan.scenes.length; si++) {
+    const scene = plan.scenes[si];
     const parsed = byId.get(scene.id);
     if (!parsed) throw new StudioError(`scene ${scene.id} is missing from script.md`);
     const slice = plan.words.slice(scene.from, scene.to);
@@ -379,8 +382,24 @@ export function writeVoiceCache(project, plan, audio, config) {
     const first = slice[0];
     const last = slice[slice.length - 1];
     const from = Math.max(0, (first?.start ?? 0) - 0.12);
-    const to = Math.min(audio.duration, (last?.end ?? from) + 0.3);
-    const samples = audio.samples.subarray(Math.round(from * audio.sampleRate), Math.round(to * audio.sampleRate));
+    // The scene's length comes from the word timings, not from how much
+    // audio is left: when the timings run past the end of the uploaded
+    // voice-over, the missing tail is silence, never a negative slice.
+    // (Before this, scenes past the audio got a negative duration, a 44-byte
+    // WAV and cues outside the scene, so check failed and the render's
+    // soundtrack had nothing to mix.)
+    const wantTo = (last?.end ?? from) + 0.3;
+    const end = Math.max(wantTo, from + 0.5);
+    const needSamples = Math.max(1, Math.round((end - from) * audio.sampleRate));
+    const availFrom = Math.min(audio.samples.length, Math.max(0, Math.round(from * audio.sampleRate)));
+    const availTo = Math.min(audio.samples.length, Math.max(availFrom, Math.round(Math.min(end, audio.duration) * audio.sampleRate)));
+    const samples = new Float32Array(needSamples);
+    if (availTo > availFrom) {
+      samples.set(audio.samples.subarray(availFrom, availTo).subarray(0, needSamples));
+    }
+    if (wantTo > audio.duration + 0.05) {
+      log(`warning: ${scene.id} speaks until ${wantTo.toFixed(1)}s but the voice-over ends at ${audio.duration.toFixed(1)}s; the missing tail is silence`);
+    }
     writeWav(path.join(paths.voice, `${scene.id}.wav`), samples, audio.sampleRate);
 
     // Word times relative to the slice, keyed by unit index like the engine's.
@@ -412,7 +431,7 @@ export function writeVoiceCache(project, plan, audio, config) {
       // Where the scene's audio starts in the uploaded file. The engine does
       // not need this; the scene generator and the page preview do.
       offset: round(from),
-      duration: round(to - from),
+      duration: round(end - from),
       words: outWords,
       marks: Object.fromEntries(Object.entries(resolveMarks(parsed.units, wordTimes)).map(([k2, v]) => [k2, round(v)])),
       chunks: sentenceChunks(outWords),
@@ -423,6 +442,7 @@ export function writeVoiceCache(project, plan, audio, config) {
     fs.writeFileSync(path.join(paths.voice, `${scene.id}.json`), JSON.stringify(info_, null, 2));
     info[scene.id] = info_;
     total += info_.duration;
+    if (onProgress) onProgress({ phase: 'voice', done: si + 1, total: plan.scenes.length, detail: scene.id });
   }
   return { scenes: info, total: round(total) };
 }

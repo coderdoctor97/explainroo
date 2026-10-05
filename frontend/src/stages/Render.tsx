@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, fmtBytes, fmtTime, type Doctor, type Job, type ProjectStatus, type Studio } from '../api';
 import { Hang, Log, Panel } from '../components/ui';
 
@@ -13,6 +13,30 @@ const STEPS: { kind: Kind; label: string; what: string }[] = [
 ];
 
 function JobBlock({ job }: { job: Job }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // Keep the newest log line in view while the job runs: this is the
+  // cheapest "is it still alive?" signal. Logs alone hide a stall where no
+  // new line appears for minutes (soundtrack mix), so the progress bar
+  // above carries the liveness signal instead.
+  useEffect(() => {
+    const el = wrapRef.current?.querySelector('.log');
+    if (el && job.status === 'running') el.scrollTop = el.scrollHeight;
+  }, [job.lines.length, job.status]);
+  const p = job.progress;
+  const pct = p && p.percent !== null ? Math.round(p.percent * 100) : null;
+  const phaseLabel = p
+    ? p.phase === 'frames' && p.done !== null && p.total
+      ? `drawing frames ${p.done}/${p.total}`
+      : p.phase === 'voice' && p.done !== null && p.total
+        ? `cutting voice ${p.done}/${p.total}${p.detail ? ` (${p.detail})` : ''}`
+        : p.phase === 'soundtrack'
+          ? `mixing soundtrack${p.detail ? ` (${p.detail})` : ''}`
+          : p.detail
+            ? `${p.phase} (${p.detail})`
+            : p.phase
+    : null;
+  const elapsed = ((job.endedAt ?? Date.now()) - job.startedAt) / 1000;
+  const stalled = job.status === 'running' && job.updatedAt && Date.now() - job.updatedAt > 15000;
   return (
     <div className="stack" style={{ marginTop: 'var(--space-2xs)' }}>
       <div className="status-line">
@@ -20,9 +44,24 @@ function JobBlock({ job }: { job: Job }) {
         <span className="mono">
           {job.label} · {job.status}
           {job.status === 'done' && job.endedAt ? ` in ${((job.endedAt - job.startedAt) / 1000).toFixed(1)}s` : ''}
+          {job.status === 'running' ? ` · ${elapsed.toFixed(0)}s so far` : ''}
         </span>
       </div>
-      <Log lines={job.lines} />
+      {(job.status === 'running' || pct !== null) && (
+        <div role="progressbar" aria-label={`${job.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct ?? 0}>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: pct !== null ? `${pct}%` : undefined }} data-indeterminate={pct === null ? 'true' : undefined} />
+          </div>
+          <p className="mono dim" style={{ marginTop: '0.25rem' }}>
+            {phaseLabel || (job.status === 'running' ? 'working…' : '')}
+            {pct !== null ? ` · ${pct}%` : job.status === 'running' ? ' · live' : ''}
+            {stalled ? ' · no update for a while — still working (soundtrack mix can take minutes on long videos)' : ''}
+          </p>
+        </div>
+      )}
+      <div ref={wrapRef}>
+        <Log lines={job.lines} />
+      </div>
       {job.error && <p className="mono err">{job.error}</p>}
       {job.status === 'error' && job.kind === 'render' && (
         <p className="mono dim">
