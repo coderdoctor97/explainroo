@@ -94,8 +94,9 @@ export function Render({ id, status, studio, job, doctor, busy, run, onRefresh }
             <div>
               <div className="title">A scene is waiting for an image</div>
               <div className="hint">
-                add {missing.map((m) => <span className="mono" key={m}>{m} </span>)} to <span className="mono">assets/</span> on the
-                Sources step (or attach a different one on the Plan step), then build again
+                drop {missing.map((m) => <span className="mono" key={m}>{m} </span>)} into the Sources step, or copy it by hand into{' '}
+                <span className="mono">studio-workspace/projects/{id}/sources/</span>, or pick another image on the Plan step — then
+                build again
               </div>
             </div>
             <div className="actions">
