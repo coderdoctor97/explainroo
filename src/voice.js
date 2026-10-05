@@ -7,11 +7,12 @@ import crypto from 'node:crypto';
 import { speechChunks, resolveMarks } from './script.js';
 import { alignWords } from './align.js';
 import { loadTTS, transcribeWords, TTS_MODEL, ASR_MODEL, TTS_SAMPLE_RATE, ttsDtype } from './models.js';
+import { ProjectError } from './project.js';
 import { writeWav, readWav, resample, trimSilence } from './wav.js';
 
 const PIPELINE = 7;
 
-function sceneHash(scene, chunks, config) {
+export function sceneHash(scene, chunks, config) {
   return crypto
     .createHash('sha256')
     .update(JSON.stringify({
@@ -44,17 +45,29 @@ export function readVoice(project, id) {
   }
 }
 
+// A project whose voice was recorded elsewhere sets "_external": true in
+// video.json. Then this function only reads build/voice/: it never loads a
+// voice model. "explainroo voice" in the studio writes those files from the
+// uploaded recording and the word timings.
+const imported = (project) => project.config._external === true;
+
 // Returns { [sceneId]: voiceInfo } and generates whatever is missing or stale.
-export async function synthesize(project, { force = false, log = () => {}, only = null } = {}) {
+export async function synthesize(project, { force = false, log = () => {}, only = null, external = false } = {}) {
   fs.mkdirSync(project.paths.voice, { recursive: true });
   const { config } = project;
   const result = {};
   const todo = [];
+  const stale = [];
   for (const scene of project.script.scenes) {
     const chunks = speechChunks(scene.units, { sentenceGap: config.sentenceGap, paragraphGap: config.paragraphGap, pace: config.pace });
     const hash = sceneHash(scene, chunks, config);
     const cached = readVoice(project, scene.id);
     const hasAudio = !chunks.length || fs.existsSync(voicePaths(project, scene.id).wav);
+    if (external || imported(project)) {
+      if (cached && cached.hash === hash && hasAudio) result[scene.id] = cached;
+      else stale.push(scene.id);
+      continue;
+    }
     if (!force && cached && cached.hash === hash && hasAudio) {
       result[scene.id] = cached;
     } else if (only && !only.includes(scene.id) && cached) {
@@ -62,6 +75,16 @@ export async function synthesize(project, { force = false, log = () => {}, only 
     } else {
       todo.push({ scene, chunks, hash });
     }
+  }
+  if (external || imported(project)) {
+    if (stale.length) {
+      throw new ProjectError(
+        `this project's voice-over was uploaded, not made here, so build/voice/ is the only narration and no voice model is loaded. ` +
+          `It is missing or out of date for: ${stale.join(', ')}. Build the project again where the upload lives, ` +
+          'or remove "_external" from video.json to let the voice model make the narration instead.',
+      );
+    }
+    return result;
   }
   if (!todo.length) return result;
 

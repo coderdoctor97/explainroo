@@ -9,3 +9,7 @@ out/
 .cache/
 .scratch/
 .env
+# uploads and generated projects live here, never in git
+studio-workspace/
+frontend-dist/
+.claude/

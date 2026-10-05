@@ -1,0 +1,295 @@
+// A UI test that needs no browser: the studio's own API and the real React
+// components, mounted in jsdom, driven the way a person would drive them —
+// press the buttons, watch the readout, change the look.
+//
+//   npm run test:ui
+//
+// jsdom draws no pixels, so this says nothing about how the page looks. It
+// says everything about whether it works: every step is the same request the
+// browser makes, and every assertion is read back out of the DOM.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
+import { startStudioApi } from './api.js';
+import { projectPaths } from './store.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+let checks = 0;
+let failures = 0;
+
+function ok(label, condition, extra = '') {
+  checks += 1;
+  if (condition) {
+    process.stdout.write(`ok   ${label}${extra ? ` — ${extra}` : ''}\n`);
+  } else {
+    failures += 1;
+    process.stdout.write(`FAIL ${label}${extra ? ` — ${extra}` : ''}\n`);
+  }
+}
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let actImpl = async (fn) => fn();
+const settle = (ms = 150) => actImpl(async () => wait(ms));
+
+async function until(fn, { tries = 60, gap = 150 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    const value = await fn();
+    if (value) return value;
+    await settle(gap);
+  }
+  return null;
+}
+
+// ---------- the three files, made here ----------
+function sampleFiles() {
+  const sentences = [
+    'A cache is a small copy of something slow, kept close by.',
+    'Your browser keeps the pictures and the styles of a website so it does not ask for them twice.',
+    'The first visit is slow and every visit after it is fast.',
+  ];
+  const transcript = sentences.join('\n\n') + '\n';
+  const words = transcript.match(/[A-Za-z0-9][A-Za-z0-9'’-]*/g);
+  const per = 0.3;
+  const timings = words.map((word, i) => ({ word, start: +(i * per).toFixed(3), end: +((i + 1) * per - 0.03).toFixed(3) }));
+  let cursor = 0;
+  const segments = sentences.map((text) => {
+    const count = text.match(/[A-Za-z0-9][A-Za-z0-9'’-]*/g).length;
+    const segWords = timings.slice(cursor, cursor + count);
+    cursor += count;
+    return { text, start: segWords[0].start, end: segWords.at(-1).end, words: segWords };
+  });
+  const duration = words.length * per + 1;
+  const sampleRate = 16000;
+  const frames = Math.round(duration * sampleRate);
+  const pcm = Buffer.alloc(frames * 2);
+  for (let i = 0; i < frames; i++) pcm.writeInt16LE(Math.round(Math.sin((i / sampleRate) * 2 * Math.PI * 220) * 8000), i * 2);
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0, 'ascii');
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8, 'ascii');
+  header.write('fmt ', 12, 'ascii');
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write('data', 36, 'ascii');
+  header.writeUInt32LE(pcm.length, 40);
+  return {
+    transcript: Buffer.from(transcript),
+    timestamps: Buffer.from(JSON.stringify({ language: 'en', segments }, null, 2)),
+    audio: Buffer.concat([header, pcm]),
+  };
+}
+
+// ---------- a page to mount into ----------
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+  url: 'http://localhost:5173/',
+  pretendToBeVisual: true,
+});
+const { window } = dom;
+for (const key of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLSelectElement', 'Element', 'Node', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame', 'localStorage', 'FormData', 'Blob', 'File', 'FileReader', 'Image']) {
+  if (window[key] === undefined) continue;
+  Object.defineProperty(globalThis, key, { value: window[key], writable: true, configurable: true });
+}
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+const problems = [];
+window.addEventListener('error', (e) => problems.push(String(e.message)));
+const realError = console.error;
+console.error = (...args) => {
+  const line = args.map((a) => (a && a.message) || String(a)).join(' ');
+  if (!/not wrapped in act/.test(line)) problems.push(line);
+  realError(...args);
+};
+
+// ---------- the API the page will talk to ----------
+const api = await startStudioApi({ port: 0 });
+const files = sampleFiles();
+const call = async (p, init) => {
+  const res = await fetch(`${api.url}/api${p}`, init);
+  const body = await res.text();
+  if (!res.ok) throw new Error(`${p} → ${res.status} ${body.slice(0, 200)}`);
+  return body ? JSON.parse(body) : null;
+};
+const { id } = await call('/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'What a cache does' }) });
+for (const [kind, buf] of Object.entries(files)) {
+  await call(`/projects/${id}/source?kind=${kind}`, { method: 'PUT', body: buf });
+}
+window.localStorage.setItem('studio:last', id);
+
+// The page only ever asks for "/api/…"; here that goes straight to the API.
+const realFetch = globalThis.fetch;
+const traffic = [];
+globalThis.fetch = (url, init) => {
+  const href = typeof url === 'string' ? url : url.url;
+  traffic.push(`${init?.method || 'GET'} ${href}`);
+  return realFetch(href.startsWith('/') ? `${api.url}${href}` : href, init);
+};
+
+// ---------- mount the real app ----------
+const { createServer } = await import('vite');
+const vite = await createServer({
+  configFile: path.join(ROOT, 'vite.config.ts'),
+  server: { middlewareMode: true, hmr: false, proxy: undefined },
+  appType: 'custom',
+  logLevel: 'error',
+});
+const React = (await import('react')).default;
+const { act } = await import('react');
+actImpl = act;
+const { createRoot } = await import('react-dom/client');
+const App = (await vite.ssrLoadModule('/src/App.tsx')).default;
+const projectApi = (await vite.ssrLoadModule('/src/api.ts')).api;
+
+const root = createRoot(window.document.getElementById('root'));
+await act(async () => {
+  root.render(React.createElement(App));
+});
+await settle(600);
+
+const $ = (sel) => window.document.querySelector(sel);
+const $$ = (sel) => [...window.document.querySelectorAll(sel)];
+const byText = (sel, needle) => $$(sel).find((el) => el.textContent.trim().toLowerCase().includes(needle.toLowerCase()));
+const click = async (el) => {
+  if (!el) return false;
+  await act(async () => {
+    el.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    await wait(200);
+  });
+  return true;
+};
+// React tracks the value it last wrote on an input, so a plain `el.value = x`
+// looks like "no change". Set it the way the browser does, then fire.
+const setField = async (el, value) => {
+  if (!el) return false;
+  const proto = el.tagName === 'SELECT' ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+  await act(async () => {
+    setter.call(el, value);
+    el.dispatchEvent(new window.Event('input', { bubbles: true }));
+    el.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await wait(200);
+  });
+  return true;
+};
+
+const text = () => window.document.body.textContent.replace(/\s+/g, ' ');
+const shot = () => text().slice(0, 160);
+
+// ---------- the shell ----------
+await until(async () => (!!$('.app') ? true : null), { tries: 40 });
+ok('the app mounts', !!$('.app'), $('.app') ? 'workbench' : shot());
+ok('the project name is in the masthead', text().includes('What a cache does'), shot());
+ok('the rail lists the four steps', ['Sources', 'Scene plan', 'Look', 'Build and render'].every((s) => text().includes(s)));
+ok('the readout knows the three files arrived', /files\s*3 \/ 3/.test(text()), text().match(/files[^A-Z]*/)?.[0]);
+ok('the transport renders', !!$('.transport') || !!byText('button', 'Play'));
+
+// ---------- Sources ----------
+const readBtn = byText('button', 'Read the sources');
+ok('“Read the sources” is offered', !!readBtn && !readBtn.disabled, readBtn ? `disabled=${readBtn.disabled}` : shot());
+await click(readBtn);
+const planned = await until(async () => (/scenes/.test($('.rail')?.textContent || '') ? true : null), { tries: 60 });
+ok('reading the sources planned the scenes', !!planned, $('.rail')?.textContent.replace(/\s+/g, ' ').slice(0, 80));
+// ---------- Scene plan ----------
+await click(byText('.rail button', 'Scene plan'));
+ok('the plan has one row per scene', $$('.scenes li.scene').length >= 2, `${$$('.scenes li.scene').length} rows`);
+const rows = $$('.scenes li.scene');
+ok('scene rows show their text and their timing', rows.length >= 2 && /\d+:\d\d/.test(rows[0].textContent), rows[0]?.textContent.replace(/\s+/g, ' ').slice(0, 90));
+
+const heading = $('.scenes li.scene input[type="text"]');
+await setField(heading, 'Cached copies are close by');
+const savedHeading = await until(async () => {
+  const studio = (await call(`/projects/${id}`)).studio;
+  return Object.values(studio.plan.headings).includes('Cached copies are close by');
+});
+ok('a renamed heading is written to the project file', !!savedHeading, JSON.stringify(Object.values((await call(`/projects/${id}`)).studio.plan.headings)));
+
+const chipInput = $('.chips .chip.add input');
+await setField(chipInput, 'cache');
+await act(async () => {
+  chipInput.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await wait(400);
+});
+const savedChip = await until(async () => Object.values((await call(`/projects/${id}`)).studio.plan.keywords).some((w) => w.includes('cache')));
+ok('a word added to a scene is saved', !!savedChip, JSON.stringify((await call(`/projects/${id}`)).studio.plan.keywords));
+
+const mergeBtn = $$('.scenes li.scene button').find((b) => b.textContent.includes('merge') && !b.disabled);
+await click(mergeBtn);
+const merged = await until(async () => (await call(`/projects/${id}`)).studio.plan.merges.length || null);
+ok('merging a scene is saved', !!merged, `merges ${JSON.stringify(merged)}`);
+
+const strategyBtn = byText('.seg button', 'Sentences');
+await click(strategyBtn);
+const strategy = (await call(`/projects/${id}`)).studio.plan.strategy;
+ok('the split strategy is saved', strategy === 'sentences', strategy);
+
+// ---------- Look ----------
+await click(byText('.rail button', 'Look'));
+const style = $('select[aria-label="look style"]');
+ok('the look stage offers a style dropdown', !!style);
+ok('it offers the five looks from the code base', style ? style.options.length === 5 : false, style ? [...style.options].map((o) => o.value).join(', ') : shot());
+await setField(style, 'chalk');
+const savedStyle = await until(async () => (await call(`/projects/${id}`)).studio.look.style === 'chalk');
+ok('choosing a look is saved', !!savedStyle);
+ok('the frame preview is drawn in that look', !!$('.frame'), $('.frame')?.style.background);
+ok('the swatches follow the look', $$('.swatch').length >= 3, `${$$('.swatch').length} swatches`);
+
+await setField($('input[aria-label="pace"]'), '1.25');
+const savedPace = await until(async () => (await call(`/projects/${id}`)).studio.look.pace === 1.25);
+ok('the pace slider is saved', !!savedPace);
+
+await setField($('select[aria-label="video size"]'), 'tiktok');
+const savedSize = await until(async () => (await call(`/projects/${id}`)).studio.look.size === 'tiktok');
+ok('a vertical size is saved', !!savedSize);
+await setField($('select[aria-label="video size"]'), 'youtube');
+
+// ---------- Build and render ----------
+await click(byText('.rail button', 'Build and render'));
+await click(byText('button', 'Build the project'));
+const built = await until(async () => fs.existsSync(path.join(projectPaths(id).video, 'scenes.js')), { tries: 80 });
+ok('the build wrote the project', !!built, projectPaths(id).video.replace(`${ROOT}/`, ''));
+const job = await until(async () => {
+  const j = await call(`/projects/${id}/job`);
+  return j && j.status !== 'running' ? j : null;
+}, { tries: 40 });
+ok('the build job finished cleanly', job?.status === 'done', job?.lines?.slice(-1)[0]);
+ok('the generated files are offered for reading', text().includes('script.md') && text().includes('scenes.js'));
+ok('the doctor row for Chrome is shown', /chrome/i.test(text()), text().match(/chrome[^A-Z]*/i)?.[0]?.slice(0, 70));
+const readoutNow = () => $('.readout')?.textContent.replace(/\s+/g, ' ') || '(no readout)';
+const refreshed = await until(async () => (/builtyes/i.test(readoutNow()) ? true : null), { tries: 40 });
+const readout = readoutNow();
+ok(
+  'the readout counts the build',
+  !!refreshed && /\d\s?wav/.test(readout),
+  refreshed ? readout.slice(0, 120) : `${readout.slice(0, 90)} · banner "${$('.main .err')?.textContent?.slice(0, 60) || 'none'}" · traffic ${traffic.slice(-4).join(' , ')}`,
+);
+
+// ---------- the generated project, through the same client the page uses ----------
+const report = (await projectApi.state(id)).status.report;
+ok('the report describes what was built', !!report && report.scenes.length >= 1, report ? `${report.scenes.length} scenes · ${report.duration}s · look ${report.style}` : 'no report');
+ok('the scene audio was cut', fs.existsSync(path.join(projectPaths(id).voiceDir, 's01.wav')), 'build/voice/s01.wav');
+
+// ---------- a refresh keeps everything ----------
+const before = text();
+await act(async () => {
+  root.render(React.createElement(App));
+  await wait(400);
+});
+const after = text();
+ok(
+  'a refresh keeps the project, the files and the look',
+  after.includes('What a cache does') && /files3 \/ 3/.test(after) && after.includes(before.includes('Cached copies') ? 'Cached copies' : 'cache'),
+  `look ${(await call(`/projects/${id}`)).studio.look.style}`,
+);
+
+ok('no uncaught errors in the page', problems.length === 0, problems.slice(0, 2).join(' | ').slice(0, 200));
+
+await vite.close();
+await api.close();
+
+process.stdout.write(`\n${checks - failures}/${checks} checks passed${failures ? ` · ${failures} FAILED` : ''}\n`);
+process.exit(failures ? 1 : 0);

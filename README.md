@@ -75,6 +75,32 @@ a separate service with its own terms and prices. If you want, the agent can
 also make illustrations with an AI image model through OpenRouter, and you pay
 for each image.
 
+## Bring your own voice-over (explainroo studio)
+
+If you already have the words, the timings and the recording — from your own
+microphone, a human voice actor, or any text-to-speech tool — you do not need
+the voice model at all. The studio is a local web app for exactly that: drop
+in `transcript.txt`, `timestamp.json` and `voiceover.wav`, cut the transcript
+into scenes, pick one of the five looks, and render. The timing you uploaded
+is the timing in the video, word for word.
+
+```bash
+npm install
+npm run dev            # then open http://localhost:5173
+```
+
+`node bin/explainroo.js studio` starts the same thing. Everything is in the
+front end: no keys, no accounts, no models, nothing sent anywhere. A refresh
+never loses your settings — project, scenes, style and files are read back
+from `studio-workspace/` on disk. If a scene asks for an image that is not
+there, the build stops and tells you the exact file name to add; drop it in
+and build again.
+
+The studio writes a normal explainroo project, so `build/`, `out/video.mp4`
+and the command line all work exactly as above. See
+[frontend/README.md](frontend/README.md) for what it does and how it is put
+together.
+
 ## Looks
 
 There are five looks: paper, clean, chalk, blueprint and midnight. You change
