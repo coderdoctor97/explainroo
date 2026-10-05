@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useUniqueId } from './useUniqueId';
 
 // ---------- Lucide icons, drawn from the repo's own icon set ----------
 
@@ -57,10 +58,17 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-export function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+export function Panel({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
+  // Several panels sit on one page — five on the Look step — so the id the
+  // heading is named by comes from useId(), once per instance, never from the
+  // title (Front-End Checklist html/unique-id). Pass `id` when a caller has to
+  // reach one panel by name; leave it out and the instances keep themselves
+  // apart.
+  const panelId = useUniqueId('panel', id);
+  const headingId = `${panelId}-title`;
   return (
-    <div className="panel">
-      <h3>{title}</h3>
+    <div className="panel" id={panelId} role="group" aria-labelledby={headingId}>
+      <h3 id={headingId}>{title}</h3>
       {children}
     </div>
   );

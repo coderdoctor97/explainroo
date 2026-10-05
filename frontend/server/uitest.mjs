@@ -17,6 +17,7 @@ import { checkCharset } from '../scripts/check-charset.mjs';
 import { checkDoctype } from '../scripts/check-doctype.mjs';
 import { checkViewport, firstViewportMeta } from '../scripts/check-viewport.mjs';
 import { checkSri, checkSriText } from '../scripts/check-sri.mjs';
+import { checkUniqueIds, checkUniqueIdsText, checkUniqueIdsDom, checkComponents, checkComponentIdsText } from '../scripts/check-unique-id.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 
@@ -185,6 +186,20 @@ const setField = async (el, value) => {
 
 const text = () => window.document.body.textContent.replace(/\s+/g, ' ');
 const shot = () => text().slice(0, 160);
+
+// The unique-id rule, asked of the document React has actually built: every id
+// in it used once, and every for / aria-labelledby / aria-describedby / #anchor
+// resolving to exactly one element. Called at each step, because a component
+// that appears once on one step appears five times on the next.
+const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const idsOk = (stage) => {
+  const result = checkUniqueIdsDom(window.document, { label: stage });
+  return ok(
+    `unique ids: the ${stage} document has no duplicate id and no reference that dangles`,
+    result.problems.length === 0,
+    result.problems[0] || `${count(result.ids.length, 'id')} kept apart, ${count(result.references.length, 'reference')} resolved`,
+  );
+};
 
 // ---------- the doctype rule (html/doctype) ----------
 // The HTML5 doctype must be the first bytes of the document. Without it,
@@ -396,6 +411,75 @@ ok(
   `${sameOrigin.resources.length} external resources`,
 );
 
+// ---------- the unique-id rule (html/unique-id) ----------
+// No id may appear twice in one document, and nothing may point at an id that
+// is not there. A duplicate makes getElementById answer with the wrong element,
+// unhooks the <label for> and every aria-labelledby / aria-describedby /
+// aria-controls that shares it, and leaves an in-page anchor with nowhere to
+// scroll to. Checked in the markup on disk, in the components that write ids,
+// and — at every step below — in the document React actually builds.
+for (const result of checkUniqueIds([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  ok(
+    `unique ids: ${path.relative(ROOT, result.file)} keeps every id unique`,
+    result.problems.length === 0,
+    result.problems[0] || `${count(result.ids.length, 'id')} kept apart, ${count(result.references.length, 'reference')} resolved`,
+  );
+}
+// A reusable component is rendered as often as it is used, so a literal id in
+// one is a duplicate waiting for the second instance. This is the half of the
+// rule no markup scan can see.
+for (const result of checkComponents([path.join(ROOT, 'frontend', 'src', 'components')])) {
+  ok(
+    `unique ids: ${path.relative(ROOT, result.file)} hardcodes no id`,
+    result.problems.length === 0,
+    result.problems[0] || 'ids come from useUniqueId(), once per instance',
+  );
+}
+
+const idFixtures = [
+  ['a document with unique ids and resolved references passes', '<label for="email">Email</label><input id="email">'
+    + '<section aria-labelledby="signup-heading"><h2 id="signup-heading">Sign up</h2></section><a href="#signup-heading">back to the heading</a>', 0],
+  ['one id written twice is refused', '<div id="content">First</div><div id="content">Second</div>', 1],
+  ['the id a repeated component writes N times is refused', '<ul><li id="scene">a</li><li id="scene">b</li><li id="scene">c</li></ul>', 1],
+  ['an id with whitespace in it is refused', '<div id="two words">x</div>', 1],
+  ['an empty id is refused', '<div id="">x</div>', 1],
+  ['a label pointing at an id nothing has is refused', '<label for="missing">Email</label><input id="email">', 1],
+  ['a label pointing at something it cannot label is refused', '<label for="box">Email</label><div id="box">x</div>', 1],
+  ['a label pointing at a hidden input is refused', '<label for="token">Email</label><input type="hidden" id="token">', 1],
+  ['an aria-labelledby pointing at an id nothing has is refused', '<div aria-labelledby="gone">x</div>', 1],
+  ['an in-page anchor pointing at an id nothing has is refused', '<a href="#nowhere">jump</a>', 1],
+  ['a list of ids is refused when one of them is missing', '<table><tr><th id="col-1">a</th></tr><tr><td headers="col-1 col-2">b</td></tr></table>', 1],
+  ['a duplicate also breaks the reference that shares it', '<p id="note">a</p><p id="note">b</p><span aria-describedby="note">c</span>', 2],
+  ['what a <template> holds is inert, so it cannot collide', '<template><div id="row"></div></template><div id="row">real</div>', 0],
+  ['what a <script> holds is text, so it cannot collide', '<script>document.getElementById("dup")</script><div id="dup">x</div>', 0],
+  ['an anchor into another document is not ours to check', '<a href="other.html#nowhere">jump</a>', 0],
+];
+for (const [name, html, expected] of idFixtures) {
+  const result = checkUniqueIdsText(html, { file: 'fixture.html' });
+  ok(
+    `unique ids: ${name}`,
+    result.problems.length === expected,
+    result.problems.join(' · ').slice(0, 170) || `${count(result.ids.length, 'id')} kept apart, ${count(result.references.length, 'reference')} resolved`,
+  );
+}
+
+const componentFixtures = [
+  ['a hardcoded id in a reusable component is refused', 'export function Row() { return <li id="scene">x</li>; }', 1],
+  ['a generated id is accepted', "import { useUniqueId } from './useUniqueId';\n"
+    + "export function Row({ id }) { const rowId = useUniqueId('scene', id); return <li id={rowId}>x</li>; }", 0],
+  ['an id that is a variable and not an attribute is code', "export function Row() { const id = 'scene'; return <li>{id}</li>; }", 0],
+  ['a property read is not an attribute', "export function Row({ style }) { const kind = style.id === 'paper' ? 'a' : 'b'; return <li>{kind}</li>; }", 0],
+  ['the wrong thing, in a comment, is not markup', '// never write <li id="scene">x</li>\nexport function Row() { return <li>x</li>; }', 0],
+];
+for (const [name, source, expected] of componentFixtures) {
+  const result = checkComponentIdsText(source, { file: 'Row.tsx' });
+  ok(
+    `unique ids: ${name}`,
+    result.problems.length === expected,
+    result.problems.join(' · ').slice(0, 170) || 'no literal id in a JSX tag',
+  );
+}
+
 // ---------- the shell ----------
 await until(async () => (!!$('.app') ? true : null), { tries: 40 });
 ok('the app mounts', !!$('.app'), $('.app') ? 'workbench' : shot());
@@ -403,6 +487,7 @@ ok('the project name is in the masthead', text().includes('What a cache does'), 
 ok('the rail lists the four steps', ['Sources', 'Scene plan', 'Look', 'Build and render'].every((s) => text().includes(s)));
 ok('the readout knows the three files arrived', /files\s*3 \/ 3/.test(text()), text().match(/files[^A-Z]*/)?.[0]);
 ok('the transport renders', !!$('.transport') || !!byText('button', 'Play'));
+idsOk('Sources');
 
 // ---------- Sources ----------
 const readBtn = byText('button', 'Read the sources');
@@ -442,6 +527,7 @@ const strategyBtn = byText('.seg button', 'Sentences');
 await click(strategyBtn);
 const strategy = (await call(`/projects/${id}`)).studio.plan.strategy;
 ok('the split strategy is saved', strategy === 'sentences', strategy);
+idsOk('Scene plan');
 
 // ---------- Look ----------
 await click(byText('.rail button', 'Look'));
@@ -453,6 +539,29 @@ const savedStyle = await until(async () => (await call(`/projects/${id}`)).studi
 ok('choosing a look is saved', !!savedStyle);
 ok('the frame preview is drawn in that look', !!$('.frame'), $('.frame')?.style.background);
 ok('the swatches follow the look', $$('.swatch').length >= 3, `${$$('.swatch').length} swatches`);
+
+// The step the rule is really about: one component, five instances, one
+// document. A hardcoded id in it would have been written five times here.
+idsOk('Look');
+const panels = $$('.panel');
+const panelIds = panels.map((p) => p.getAttribute('id'));
+ok(
+  'unique ids: every panel on the step gets its own id',
+  panels.length >= 3 && new Set(panelIds).size === panels.length,
+  `${panels.length} panels → ${panelIds.join(', ')}`,
+);
+ok(
+  'unique ids: getElementById answers with the panel’s own heading, not another panel’s',
+  panels.length >= 3 && panels.every((p) => {
+    const namedBy = p.getAttribute('aria-labelledby');
+    const heading = namedBy ? window.document.getElementById(namedBy) : null;
+    return !!heading && heading.tagName === 'H3' && heading.parentElement === p;
+  }),
+  panels.map((p) => {
+    const by = p.getAttribute('aria-labelledby');
+    return `${by} → “${window.document.getElementById(by)?.textContent?.trim() || 'nothing'}”`;
+  }).join(' · '),
+);
 
 await setField($('input[aria-label="pace"]'), '1.25');
 const savedPace = await until(async () => (await call(`/projects/${id}`)).studio.look.pace === 1.25);
@@ -484,6 +593,8 @@ ok(
   refreshed ? readout.slice(0, 120) : `${readout.slice(0, 90)} · banner "${$('.main .err')?.textContent?.slice(0, 60) || 'none'}" · traffic ${traffic.slice(-4).join(' , ')}`,
 );
 
+idsOk('Build and render');
+
 // ---------- the generated project, through the same client the page uses ----------
 const report = (await projectApi.state(id)).status.report;
 ok('the report describes what was built', !!report && report.scenes.length >= 1, report ? `${report.scenes.length} scenes · ${report.duration}s · look ${report.style}` : 'no report');
@@ -501,6 +612,8 @@ ok(
   after.includes('What a cache does') && /files3 \/ 3/.test(after) && after.includes(before.includes('Cached copies') ? 'Cached copies' : 'cache'),
   `look ${(await call(`/projects/${id}`)).studio.look.style}`,
 );
+
+idsOk('refreshed');
 
 ok('no uncaught errors in the page', problems.length === 0, problems.slice(0, 2).join(' | ').slice(0, 200));
 

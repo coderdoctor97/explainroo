@@ -109,10 +109,12 @@ frontend/
     check-charset.mjs   the html/charset guard: UTF-8 first in <head>, no BOM
     check-viewport.mjs  the html/viewport guard: one responsive viewport, zoom left on
     check-sri.mjs       the html/subresource-integrity guard for external scripts and stylesheets
+    check-unique-id.mjs the html/unique-id guard: no id twice, no reference that dangles
   src/
     api.ts              one typed function per route; all URLs are relative
     App.tsx             the shell: projects, steps, transport, persistence
-    components/         ui.tsx (controls), Transport.tsx, Frame.tsx, Readout.tsx
+    components/         ui.tsx (controls), Transport.tsx, Frame.tsx, Readout.tsx,
+                        useUniqueId.ts (one id per instance, from React's useId)
     stages/             Sources.tsx, Plan.tsx, Look.tsx, Render.tsx
     styles/             tokens.css (the design system), app.css
   server/
@@ -123,7 +125,8 @@ frontend/
     build.js            analyze / build / status / doctor
     api.js              the HTTP API (127.0.0.1 only, reached through /api)
     selftest.mjs        npm run test:studio — 25 checks, no browser
-    uitest.mjs          npm run test:ui — 45 checks, React in jsdom, real API, the head guards
+    uitest.mjs          npm run test:ui — 89 checks (94 with a build), React in jsdom, real API,
+                        the markup guards
 ```
 
 ## Tests
@@ -134,9 +137,10 @@ npm run test           # the repo's own tests
 npm run test:studio    # the back end: parsing, planning, voice cache, generation
 npm run test:ui        # the front end: mount the app, click it, read the DOM
 npm run build          # bundle the page into frontend-dist/
-node frontend/scripts/check-charset.mjs  # the charset guard alone, every HTML file
-node frontend/scripts/check-viewport.mjs # the viewport guard alone, every HTML file
-node frontend/scripts/check-sri.mjs      # SRI guard, source HTML + frontend-dist/ when built
+node frontend/scripts/check-charset.mjs    # the charset guard alone, every HTML file
+node frontend/scripts/check-viewport.mjs   # the viewport guard alone, every HTML file
+node frontend/scripts/check-sri.mjs        # SRI guard, source HTML + frontend-dist/ when built
+node frontend/scripts/check-unique-id.mjs  # unique-id guard, source + build + the components
 ```
 
 The charset guard is its own script because it has to run on a checkout with no
@@ -169,6 +173,28 @@ as external by default; pass `--origin https://your-host.example` (or set
 checked-in and built HTML. At present the studio has no external script or
 stylesheet URLs: Vite bundles and `/api/fonts/...` requests are same-origin, so
 there are no CDN hashes or CORS headers to maintain.
+
+The unique-id guard is the Front-End Checklist rule `html/unique-id`, plus the
+rules that lean on it: an id must appear once in a document, and everything that
+points at one — `<label for>`, `<output for>`, `th`/`td headers`, the `aria-*` id
+reference lists, an in-page anchor `href="#…"`, a `<use href="#…">` — must
+resolve to exactly one element, and a label's must be an element a label can be
+for. An id that is empty or holds whitespace is refused too: the spec forbids it
+and nothing can ever reference it. Uniqueness belongs to one *rendered*
+document, not to one source file, so the guard runs in three places that all
+come through the same `auditIdGraph()`: the HTML on disk (`index.html`, and
+`frontend-dist/` when there is a build), the live DOM React produces at every
+step of `test:ui`, and the reusable components in `src/components/`, which are
+refused a hardcoded id because a component rendered N times writes that id N
+times — the Look step renders one `Panel` five times over. Components that do
+need an id take it from `useUniqueId(prefix, id?)` in
+`src/components/useUniqueId.ts`, which wraps React's `useId()` (so a server
+render and its hydration agree), keeps the value safe in a CSS selector, and
+accepts an optional `id` prop for a caller who has to name the element itself.
+Like the SRI guard, this one is not part of `lint:html`, which lives in the root
+`package.json` outside `frontend/`; it runs on its own and inside `test:ui`. Add
+`&& node frontend/scripts/check-unique-id.mjs` to that script to run it with the
+other three.
 
 `test:ui` mounts the real components in jsdom against a real API, then does
 what a person does: reads the sources, renames a heading, adds a word, merges
