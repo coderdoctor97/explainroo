@@ -30,6 +30,10 @@ Make a video
   render [project]      write out/video.mp4 (--draft, --from s, --to s, --workers n, --out file)
   verify [project]      check the rendered file: loudness, black frames, narration
 
+Your own recording (no voice model, no API keys)
+  studio                open the studio in a browser (--port 4000): upload a transcript,
+                        word timings and a voice-over, pick a look, render
+
 Images (optional, needs an OpenRouter API key)
   image [project] <name> "<what to draw>"   save an illustration as assets/<name>.png
                         (--model best|cheap, --aspect 16:9, --ref assets/a.png,assets/b.png, --no-style)
@@ -192,6 +196,12 @@ export async function main(argv) {
         const rows = info.map((r) => `${r.name.padEnd(10)} ${`${r.width}x${r.height}`.padEnd(10)} ${r.use}\n${''.padEnd(22)}content area ${r.content.w}x${r.content.h} at ${r.content.x},${r.content.y}${r.captions ? ', captions below it' : ''}`);
         print(rows.join('\n') + '\n\nAlso: 16:9, 9:16, 1:1, 4:5 or WIDTHxHEIGHT. Set it with "size" in video.json or init --size.', { formats: info });
         return 0;
+      }
+      case 'studio': {
+        const { startStudio } = await import('../frontend/dev.mjs');
+        const { url } = await startStudio({ port: Number(flags.port) || Number(process.env.PORT || 5173) });
+        print(`explainroo studio is running at ${url} — press ctrl-c to stop`, { url, ready: true });
+        return new Promise(() => {});
       }
       case 'icons': return icons(pos, print);
       case 'doctor': return doctor(flags, log, print);

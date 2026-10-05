@@ -1,5 +1,8 @@
 // Shared steps: voice + timeline, the page state the engine loads, and a
 // session that runs the engine in headless Chrome.
+//
+// A project with "_external": true in video.json brings its own voice-over
+// and word timings (see src/voice.js), so no voice model is loaded at all.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -10,7 +13,7 @@ import { startServer } from './server.js';
 import { launch, openEngine } from './browser.js';
 
 export async function prepare(project, { log = () => {}, force = false } = {}) {
-  const voices = await synthesize(project, { log, force });
+  const voices = await synthesize(project, { log, force, external: project.config._external === true });
   const timeline = buildTimeline(project, voices);
   fs.mkdirSync(project.paths.build, { recursive: true });
   fs.writeFileSync(path.join(project.paths.build, 'timeline.json'), JSON.stringify(timeline, null, 2));
