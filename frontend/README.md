@@ -105,6 +105,8 @@ icon files.
 frontend/
   index.html            the page shell
   dev.mjs               starts the API, then Vite, and wires /api to it
+  scripts/
+    check-charset.mjs   the html/charset guard: UTF-8 first in <head>, no BOM
   src/
     api.ts              one typed function per route; all URLs are relative
     App.tsx             the shell: projects, steps, transport, persistence
@@ -119,7 +121,7 @@ frontend/
     build.js            analyze / build / status / doctor
     api.js              the HTTP API (127.0.0.1 only, reached through /api)
     selftest.mjs        npm run test:studio — 25 checks, no browser
-    uitest.mjs          npm run test:ui — 29 checks, React in jsdom, real API
+    uitest.mjs          npm run test:ui — 38 checks, React in jsdom, real API, the charset guard
 ```
 
 ## Tests
@@ -130,7 +132,17 @@ npm run test           # the repo's own tests
 npm run test:studio    # the back end: parsing, planning, voice cache, generation
 npm run test:ui        # the front end: mount the app, click it, read the DOM
 npm run build          # bundle the page into frontend-dist/
+node frontend/scripts/check-charset.mjs  # the charset guard alone, every HTML file
 ```
+
+The charset guard is its own script because it has to run on a checkout with no
+dependencies installed: it reads `<meta charset="utf-8">` out of every HTML file
+the studio ships — `index.html`, and `frontend-dist/` when there is a build —
+and fails if it is not the first element in `<head>`, if there is more than one
+declaration, if it starts after the first 1024 bytes, if a legacy
+`<meta http-equiv="Content-Type">` is left, or if the file starts with a BOM.
+`test:ui` runs it too, checks the same questions against a real DOM, and checks
+the page the dev server actually serves.
 
 `test:ui` mounts the real components in jsdom against a real API, then does
 what a person does: reads the sources, renames a heading, adds a word, merges

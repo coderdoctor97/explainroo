@@ -12,6 +12,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { startStudioApi } from './api.js';
+import { checkCharset } from '../scripts/check-charset.mjs';
+import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -179,6 +181,58 @@ const setField = async (el, value) => {
 
 const text = () => window.document.body.textContent.replace(/\s+/g, ' ');
 const shot = () => text().slice(0, 160);
+
+// ---------- the charset rule (html/charset) ----------
+// index.html is the only thing the browser reads before it reads anything
+// else, so check the file on disk and then check what a DOM made of it says,
+// the way the browser reports it. The build output is checked too, when there
+// is one (npm run build).
+const pageFile = path.join(ROOT, 'frontend', 'index.html');
+const distDir = path.join(ROOT, 'frontend-dist');
+for (const result of checkCharset([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  ok(
+    `charset: ${path.relative(ROOT, result.file)} declares UTF-8 first in <head>`,
+    result.problems.length === 0,
+    result.problems[0] || `byte ${result.offset}`,
+  );
+}
+const page = new JSDOM(fs.readFileSync(pageFile, 'utf8'), { url: 'http://localhost:5173/' });
+const head = page.window.document.head;
+ok('charset: document.characterSet is UTF-8', page.window.document.characterSet === 'UTF-8', page.window.document.characterSet);
+ok(
+  'charset: the first element in <head> is <meta charset>',
+  !!head.firstElementChild && head.firstElementChild.matches('meta[charset]'),
+  head.firstElementChild ? head.firstElementChild.outerHTML.trim() : 'no <head>',
+);
+const declared = head.querySelectorAll('meta[charset]');
+ok(
+  'charset: exactly one charset declaration, and it says utf-8',
+  declared.length === 1 && declared[0].getAttribute('charset').toLowerCase() === 'utf-8',
+  declared.length === 1 ? declared[0].outerHTML.trim().slice(0, 40) : `${declared.length} declarations`,
+);
+ok('charset: no legacy <meta http-equiv="Content-Type"> remains', !page.window.document.querySelector('meta[http-equiv]'));
+
+// The dev server tells a different story: Vite puts its client and the React
+// refresh preamble in <head> ahead of our declaration (see dev.mjs). Feed the
+// transform the page the way Vite serves it — with those scripts already
+// injected — and check it hands the declaration back to the front, and that
+// the page is sent as UTF-8.
+const rule = charsetRule();
+const injected = fs.readFileSync(pageFile, 'utf8').replace(
+  '<head>',
+  '<head>\n    <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";</script>\n    <script type="module" src="/@vite/client"></script>',
+);
+const servedHtml = rule.transformIndexHtml.handler(injected);
+const servedFirst = /<head[^>]*>\s*(?:<!--[\s\S]*?-->\s*)?(<[^>]*>)/i.exec(servedHtml)?.[1] || '';
+ok('charset: the served page keeps <meta charset> first in <head>', /^<meta[^>]*charset/i.test(servedFirst), servedFirst.slice(0, 44));
+let sentHeaders;
+rule.configureServer({ middlewares: { use(fn) { sentHeaders = fn; } } });
+const fake = { headers: {}, setHeader(name, value) { this.headers[name] = value; }, writeHead() {} };
+sentHeaders({ method: 'GET', url: '/' }, fake, () => {});
+fake.setHeader('Content-Type', 'text/html');
+ok('charset: the served page is sent as text/html; charset=utf-8', fake.headers['Content-Type'] === 'text/html; charset=utf-8', fake.headers['Content-Type']);
+fake.setHeader('Content-Type', 'text/javascript');
+ok('charset: other content types are left alone', fake.headers['Content-Type'] === 'text/javascript', fake.headers['Content-Type']);
 
 // ---------- the shell ----------
 await until(async () => (!!$('.app') ? true : null), { tries: 40 });
