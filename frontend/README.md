@@ -108,6 +108,7 @@ frontend/
   scripts/
     check-charset.mjs   the html/charset guard: UTF-8 first in <head>, no BOM
     check-viewport.mjs  the html/viewport guard: one responsive viewport, zoom left on
+    check-sri.mjs       the html/subresource-integrity guard for external scripts and stylesheets
   src/
     api.ts              one typed function per route; all URLs are relative
     App.tsx             the shell: projects, steps, transport, persistence
@@ -135,6 +136,7 @@ npm run test:ui        # the front end: mount the app, click it, read the DOM
 npm run build          # bundle the page into frontend-dist/
 node frontend/scripts/check-charset.mjs  # the charset guard alone, every HTML file
 node frontend/scripts/check-viewport.mjs # the viewport guard alone, every HTML file
+node frontend/scripts/check-sri.mjs      # SRI guard, source HTML + frontend-dist/ when built
 ```
 
 The charset guard is its own script because it has to run on a checkout with no
@@ -153,6 +155,20 @@ it does not start from `width=device-width, initial-scale=1` (`1.0` is the same
 number), when `user-scalable=no` is set, or when `maximum-scale` caps zoom
 below 2. The two rules are one line in one file, so a regression is a one-line
 mistake — this is the guard for it.
+
+The SRI guard walks source and built HTML for cross-origin `<script src>` and
+`<link rel="stylesheet" href>` tags. Every such tag must have well-formed
+SHA-256, SHA-384 or SHA-512 digest metadata plus `crossorigin="anonymous"`;
+SHA-384 is preferred. The guard checks markup and digest format, not that a
+hash matches bytes fetched from a CDN. When adding a CDN asset, pin its version
+and verify its hash and CORS response. Relative assets remain exempt. As static
+HTML does not identify its deployment host, absolute HTTP(S) URLs are treated
+as external by default; pass `--origin https://your-host.example` (or set
+`SRI_ORIGIN`) when scanning HTML that uses absolute same-origin asset URLs.
+`test:ui` runs positive and negative fixtures as well as scanning the
+checked-in and built HTML. At present the studio has no external script or
+stylesheet URLs: Vite bundles and `/api/fonts/...` requests are same-origin, so
+there are no CDN hashes or CORS headers to maintain.
 
 `test:ui` mounts the real components in jsdom against a real API, then does
 what a person does: reads the sources, renames a heading, adds a word, merges

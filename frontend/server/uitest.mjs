@@ -9,12 +9,14 @@
 // browser makes, and every assertion is read back out of the DOM.
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { startStudioApi } from './api.js';
 import { checkCharset } from '../scripts/check-charset.mjs';
 import { checkDoctype } from '../scripts/check-doctype.mjs';
 import { checkViewport, firstViewportMeta } from '../scripts/check-viewport.mjs';
+import { checkSri, checkSriText } from '../scripts/check-sri.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 
@@ -304,6 +306,94 @@ ok(
   'viewport: the page the dev server serves still carries it',
   /<meta[^>]+name=["']viewport["'][^>]*content=["'][^"']*width=device-width[^"']*initial-scale=1/i.test(servedHtml),
   (/<meta[^>]+name=["']viewport["'][^>]*>/i.exec(servedHtml) || ['missing'])[0],
+);
+
+// ---------- the SRI rule (html/subresource-integrity) ----------
+// Scan both source and production HTML. Local Vite bundles and the studio's
+// /api/fonts files are same-origin, so only external script/style URLs need
+// integrity metadata and crossorigin="anonymous".
+for (const result of checkSri([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  const summary = result.resources.length
+    ? `${result.resources.length} external scripts/stylesheets`
+    : 'no external scripts or stylesheets';
+  ok(
+    `SRI: ${path.relative(ROOT, result.file)} protects external resources`,
+    result.problems.length === 0,
+    result.problems[0] || summary,
+  );
+}
+const servedSri = checkSriText(servedHtml, { origin: 'http://localhost:5173' });
+ok(
+  'SRI: Vite development-injected scripts stay same-origin',
+  servedSri.resources.length === 0 && servedSri.problems.length === 0,
+  `${servedSri.resources.length} external resources`,
+);
+
+const remoteScriptMissing = checkSriText(
+  '<script src="https://cdn.example.test/library.js"></script>',
+  { origin: 'https://studio.example.test' },
+);
+ok(
+  'SRI: an external script without integrity and CORS is rejected',
+  remoteScriptMissing.resources.length === 1 && remoteScriptMissing.problems.length === 2,
+  remoteScriptMissing.problems.join('; '),
+);
+const entityEncodedRemote = checkSriText(
+  '<script src="https&colon;&sol;&sol;cdn.example.test/library.js"></script>',
+  { origin: 'https://studio.example.test' },
+);
+ok(
+  'SRI: HTML-entity-encoded external URLs are still detected',
+  entityEncodedRemote.resources.length === 1 && entityEncodedRemote.problems.length === 2,
+  entityEncodedRemote.problems.join('; '),
+);
+const remoteStylesheetMissing = checkSriText(
+  '<link rel="stylesheet" href="//styles.example.test/site.css">',
+  { origin: 'https://studio.example.test' },
+);
+ok(
+  'SRI: an external stylesheet without attributes is rejected',
+  remoteStylesheetMissing.resources.length === 1 && remoteStylesheetMissing.problems.length === 2,
+  remoteStylesheetMissing.problems.join('; '),
+);
+const validDigest = `sha384-${createHash('sha384').update('SRI test fixture').digest('base64')}`;
+const remoteProtected = checkSriText(
+  `<script src="https://cdn.example.test/library.js" integrity="${validDigest}" crossorigin="anonymous"></script>`
+    + `<link rel="stylesheet" href="https://cdn.example.test/site.css" integrity="${validDigest}" crossorigin="anonymous">`,
+  { origin: 'https://studio.example.test' },
+);
+ok(
+  'SRI: external scripts and stylesheets pass with sha384 and anonymous CORS',
+  remoteProtected.resources.length === 2 && remoteProtected.problems.length === 0,
+  remoteProtected.resources.map((resource) => resource.algorithms.join(',')).join(' · '),
+);
+const invalidDigest = checkSriText(
+  '<script src="https://cdn.example.test/library.js" integrity="sha384-short" crossorigin="anonymous"></script>',
+  { origin: 'https://studio.example.test' },
+);
+ok(
+  'SRI: malformed hash metadata is rejected',
+  invalidDigest.resources.length === 1 && invalidDigest.problems.length === 1,
+  invalidDigest.problems.join('; '),
+);
+const remoteBase = checkSriText(
+  '<base href="https://cdn.example.test/assets/"><script src="widget.js"></script>',
+  { origin: 'https://studio.example.test' },
+);
+ok(
+  'SRI: a cross-origin <base> makes relative script URLs external',
+  remoteBase.resources.length === 1 && remoteBase.problems.length === 2,
+  remoteBase.problems.join('; '),
+);
+const sameOrigin = checkSriText(
+  '<script src="https://studio.example.test/app.js"></script>'
+    + '<link rel="stylesheet" href="/assets/app.css">',
+  { origin: 'https://studio.example.test' },
+);
+ok(
+  'SRI: same-origin scripts and stylesheets are excluded',
+  sameOrigin.resources.length === 0 && sameOrigin.problems.length === 0,
+  `${sameOrigin.resources.length} external resources`,
 );
 
 // ---------- the shell ----------
