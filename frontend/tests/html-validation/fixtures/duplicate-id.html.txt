@@ -1,0 +1,2 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Validator fixture</title></head><body><main><h1>Example</h1><div id="duplicate"></div><div id="duplicate"></div></main></body></html>

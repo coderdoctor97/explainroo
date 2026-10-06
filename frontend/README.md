@@ -267,3 +267,11 @@ then run `npm run --prefix frontend test:semantic`. The existing
 `npm run test:ui` also checks landmarks and headings at each workflow step.
 See [the semantic layout audit](docs/semantic-html.md) for the scope, test
 commands, retained layout divs, and external validation/CI limitations.
+
+## HTML standards validation
+
+Run `npm run --prefix frontend validate:html` and
+`npm run --prefix frontend test:html` after installing frontend dependencies.
+The existing UI test also validates six rendered workflow states. JSON reports
+are written under `frontend/.reports/`. See [HTML validation](docs/html-validation.md)
+for configuration, coverage and the outstanding Nu/MCP and root-CI limitations.

@@ -1,0 +1,44 @@
+[
+  {
+    "query": "\"html-validate\" path:.github/workflows",
+    "results": [
+      {
+        "url": "https://github.com/icco/resume/blob/e4e3d6800f3883a4a74454e2d1e59fe12aa3e23b/.github/workflows/html-validate.yml",
+        "path": ".github/workflows/html-validate.yml"
+      },
+      {
+        "url": "https://github.com/moshesham/Data-Science-Analytical-Handbook/blob/d96d643bcd97ee7c1b66578b5b9ea142ce931811/.github/workflows/html-validate.yml",
+        "path": ".github/workflows/html-validate.yml"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "\"vnu-jar\" path:.github/workflows",
+    "results": [
+      {
+        "url": "https://github.com/w3c/aria-practices/blob/0f765e4dc33e966026114ac12a8380db1de3b787/.github/workflows/vnu-jar-problem-matcher.json",
+        "path": ".github/workflows/vnu-jar-problem-matcher.json"
+      },
+      {
+        "url": "https://github.com/thomaspark/bootswatch/blob/bff83c63ea845c9cb535a3c16e41aef6826cfd05/.github/workflows/ci.yml",
+        "path": ".github/workflows/ci.yml"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "\"html-validate\" \"lint-staged\"",
+    "results": [
+      {
+        "url": "https://github.com/oven-sh/bun/blob/13a98b0dbd136bcc5c98a8adfb53c909aa3183cc/src/runtime/cli/add_completions.txt",
+        "path": "src/runtime/cli/add_completions.txt"
+      },
+      {
+        "url": "https://github.com/donniean/react-app/blob/234b0685a045f2f061e5c99adc2c80cbb50ecb01/lint-staged.config.ts",
+        "path": "lint-staged.config.ts"
+      }
+    ],
+    "error": null
+  }
+]

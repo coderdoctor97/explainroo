@@ -22,6 +22,7 @@ import { checkDeferAsync, checkDeferAsyncText } from '../scripts/check-defer-asy
 import { checkVideoAccessibility, checkVideoAccessibilityText } from '../scripts/check-video-accessibility.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
+import { validateHtml, writeReport } from '../scripts/validate-html.mjs';
 import { checkSemanticHtml } from '../scripts/check-semantic-html.mjs';
 import { checkInputTypes } from '../scripts/check-input-types.mjs';
 import { inputAxeViolations } from '../tests/input-types/helpers.mjs';
@@ -623,8 +624,15 @@ ok(
   idFixtureFound.length === 1 && idFixtureFound[0].id === 'dup' && idFixtureFound[0].count === 2,
   idFixtureFound.map((d) => `${d.id}×${d.count}`).join(', '),
 );
+const htmlReports = [];
 const idPages = [];
+async function htmlOn(step) {
+  const htmlResult = await validateHtml(dom.serialize(), `rendered/${step}.html`);
+  htmlReports.push(htmlResult);
+  ok(`HTML standards: ${step}`, htmlResult.errors === 0, htmlResult.messages.map((m) => `${m.ruleId}: ${m.message}`).join('; '));
+}
 async function uniqueIdsOn(step) {
+  await htmlOn(step);
   const inputProblems = checkInputTypes(window.document);
   ok(`input types: ${step}`, inputProblems.length === 0, inputProblems.join("; "));
   const inputViolations = await inputAxeViolations(window.document);
@@ -679,6 +687,7 @@ const trafficBeforeValidation = traffic.length;
 await setField(wordCount, '');
 await setField(sceneSeconds, '41');
 await click(byText('.scene-plan-form button', 'Re-plan'));
+await htmlOn('Scene plan validation errors');
 ok('validation: invalid submit focuses the error summary', window.document.activeElement === $('.error-summary'));
 ok('validation: all invalid fields are linked', $$('.error-summary a').length === 2 && wordCount.getAttribute('aria-invalid') === 'true');
 ok('validation: invalid draft sends no settings PATCH', !traffic.slice(trafficBeforeValidation).some((request) => request.startsWith('PATCH')));
@@ -797,6 +806,8 @@ ok(
   window.document.querySelectorAll('#root').length === 1 && window.document.getElementById('root') === window.document.querySelector('#root'),
   `${window.document.querySelectorAll('#root').length} element${window.document.querySelectorAll('#root').length === 1 ? '' : 's'} match #root`,
 );
+
+writeReport(path.join(ROOT, 'frontend/.reports/html-validation-ui.json'), htmlReports);
 
 ok('no uncaught errors in the page', problems.length === 0, problems.slice(0, 2).join(' | ').slice(0, 200));
 

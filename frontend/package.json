@@ -2,7 +2,8 @@
   "devDependencies": {
     "@testing-library/dom": "10.4.2",
     "@testing-library/user-event": "14.6.7",
-    "axe-core": "4.14.0"
+    "axe-core": "4.14.0",
+    "html-validate": "11.16.2"
   },
   "private": true,
   "type": "module",
@@ -10,6 +11,8 @@
     "test:semantic": "node --test tests/semantic-html/*.test.js",
     "lint:semantic": "node --test tests/semantic-html/lint.test.js",
     "test:input-types": "node --test tests/input-types/*.test.js",
-    "test:validation": "node --test tests/form-validation/*.test.js"
+    "test:validation": "node --test tests/form-validation/*.test.js",
+    "validate:html": "node scripts/validate-html.mjs",
+    "test:html": "node --test tests/html-validation/*.test.js"
   }
 }

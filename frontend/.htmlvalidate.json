@@ -1,0 +1,10 @@
+{
+  "root": true,
+  "extends": ["html-validate:standard"],
+  "elements": ["html5", {"html": {"attributes": {"lang": {"required": true, "enum": ["/\\S+/"]}}}}],
+  "rules": {
+    "missing-doctype": "error",
+    "doctype-html": "error",
+    "no-implicit-close": "error"
+  }
+}

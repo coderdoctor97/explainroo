@@ -1,0 +1,2 @@
+# Local HTML validation reports; suitable for CI artifacts, not source control.
+.reports/
