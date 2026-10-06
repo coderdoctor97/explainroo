@@ -1,0 +1,18 @@
+{
+  "checkedOn": "2026-10-06",
+  "rule": "html/video-thumbnail",
+  "reference": "https://frontendchecklist.io/rules/html/video-thumbnail",
+  "attempts": [
+    "https://mcp.frontendchecklist.io/rules/html/video-thumbnail",
+    "https://mcp.frontendchecklist.io/rules?query=responsive-media,lazy-load-media",
+    "https://link.mcpmarket.com/earningbuddyv/github-chat/mcp"
+  ],
+  "status": "unavailable",
+  "error": "curl (35): OpenSSL SSL_connect: SSL_ERROR_SYSCALL",
+  "description": null,
+  "recommendedImplementation": null,
+  "relatedRules": null,
+  "verificationResult": null,
+  "taskProvidedRequirement": "Every video element should provide a poster thumbnail before loading or playback.",
+  "note": "Local connection-attempt record, not an exported rule or verification response. No MCP credentials were supplied or requested. TLS failed before authentication/discovery could complete. Repository access used the connected checkout and authenticated gh."
+}

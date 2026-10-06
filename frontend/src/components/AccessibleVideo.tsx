@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import defaultPoster from '../assets/video-thumbnail/placeholder.webp?no-inline';
 import { type Phrase, transcriptFromPhrases } from '../captions-vtt';
 
 // An accessible <video> wrapper. The Front-End Checklist rule
@@ -15,6 +16,9 @@ import { type Phrase, transcriptFromPhrases } from '../captions-vtt';
 // The explainroo engine burns captions into the video frames, so the MP4
 // already shows the words as they are spoken. This component adds the
 // player-level tracks and transcript the HTML5 spec and WCAG expect.
+
+// Vite emits a hashed, base-aware URL in production; no hard-coded public root.
+export const DEFAULT_VIDEO_POSTER = defaultPoster;
 
 type CaptionTrack = {
   src: string;
@@ -37,6 +41,22 @@ type Props = {
 
 export function AccessibleVideo({ src, title, poster, captions, transcriptPhrases, transcriptText, transcriptUrl, width, height }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const candidatePoster = poster?.trim() || null;
+  const [loadedPoster, setLoadedPoster] = useState<string | null>(null);
+  // A video error event reports media errors, not reliably poster failures.
+  // Keep the bundled preview visible until a supplied image actually loads.
+  useEffect(() => {
+    if (!candidatePoster || candidatePoster === defaultPoster) return;
+    let active = true;
+    const image = new Image();
+    image.onload = () => {
+      if (active) setLoadedPoster(image.naturalWidth > 0 ? candidatePoster : null);
+    };
+    image.onerror = () => { if (active) setLoadedPoster(null); };
+    image.src = candidatePoster;
+    return () => { active = false; image.onload = null; image.onerror = null; };
+  }, [candidatePoster]);
+  const resolvedPoster = candidatePoster && loadedPoster === candidatePoster ? candidatePoster : defaultPoster;
   const [showTranscript, setShowTranscript] = useState(false);
   const [fetchedTranscript, setFetchedTranscript] = useState<string | null>(null);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
@@ -83,7 +103,7 @@ export function AccessibleVideo({ src, title, poster, captions, transcriptPhrase
         controls
         preload="metadata"
         src={src}
-        poster={poster}
+        poster={resolvedPoster}
         width={width}
         height={height}
         aria-label={`Video player – ${title}`}

@@ -1,0 +1,31 @@
+[
+  {
+    "query": "repo:mdn/learning-area poster extension:html",
+    "results": [
+      {
+        "path": "html/multimedia-and-embedding/video-and-audio-content/extra-video-features.html",
+        "url": "https://github.com/mdn/learning-area/blob/d55e1c2e3ff401519811b64e5b2a7d3643b43d0f/html/multimedia-and-embedding/video-and-audio-content/extra-video-features.html"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "repo:videojs/video.js poster path:examples",
+    "results": [],
+    "error": null
+  },
+  {
+    "query": "repo:withastro/docs poster extension:mdx",
+    "results": [
+      {
+        "path": "src/content/docs/en/guides/media/mux.mdx",
+        "url": "https://github.com/withastro/docs/blob/5ad9aaeef5e168786baecb4ab337e912d87cb733/src/content/docs/en/guides/media/mux.mdx"
+      },
+      {
+        "path": "src/content/docs/ko/guides/media/mux.mdx",
+        "url": "https://github.com/withastro/docs/blob/5ad9aaeef5e168786baecb4ab337e912d87cb733/src/content/docs/ko/guides/media/mux.mdx"
+      }
+    ],
+    "error": null
+  }
+]

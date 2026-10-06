@@ -275,3 +275,13 @@ Run `npm run --prefix frontend validate:html` and
 The existing UI test also validates six rendered workflow states. JSON reports
 are written under `frontend/.reports/`. See [HTML validation](docs/html-validation.md)
 for configuration, coverage and the outstanding Nu/MCP and root-CI limitations.
+
+## Video thumbnails
+
+Every production `<video>` must have a nonempty `poster`. Use `AccessibleVideo`:
+it prefers a supplied scene still after it loads and otherwise shows the bundled
+`src/assets/video-thumbnail/placeholder.webp`. Do not remove the fallback or
+replace captions/transcripts with thumbnail text. Run
+`npm run --prefix frontend test:posters` (or all frontend tests with
+`npm test --prefix frontend`). See [video thumbnails](docs/video-thumbnails.md)
+for asset handling, tests and the [MCP attempt record](mcp_rules/video-thumbnail.json).
