@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test:semantic": "node --test tests/semantic-html/*.test.js",
-    "lint:semantic": "node --test tests/semantic-html/lint.test.js"
+    "lint:semantic": "node --test tests/semantic-html/lint.test.js",
+    "test:input-types": "node --test tests/input-types/*.test.js"
   }
 }

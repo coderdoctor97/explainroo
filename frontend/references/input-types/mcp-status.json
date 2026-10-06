@@ -1,0 +1,30 @@
+{
+  "checkedOn": "2026-10-06",
+  "rule": "html/input-types",
+  "ruleUrl": "https://frontendchecklist.io/rules/html/input-types",
+  "attempts": [
+    {
+      "url": "https://mcp.frontendchecklist.io/rules/html/input-types",
+      "accept": "application/json",
+      "error": "curl (35): OpenSSL SSL_connect: SSL_ERROR_SYSCALL"
+    },
+    {
+      "url": "https://mcp.frontendchecklist.io/rules?category=html&query=input,form,autocomplete,validation,accessibility",
+      "accept": "application/json",
+      "error": "curl (35): OpenSSL SSL_connect: SSL_ERROR_SYSCALL"
+    },
+    {
+      "url": "https://link.mcpmarket.com/earningbuddyv/github-chat/mcp",
+      "accept": "application/json, text/event-stream",
+      "error": "curl (35): OpenSSL SSL_connect: SSL_ERROR_SYSCALL"
+    }
+  ],
+  "status": "unavailable",
+  "description": null,
+  "rationale": null,
+  "acceptanceCriteria": null,
+  "examples": null,
+  "relatedRules": null,
+  "verificationResult": null,
+  "note": "Local connection-attempt log, not a server response. MCP transport, authentication, endpoint discovery and rule retrieval could not complete. Local checkout and authenticated gh API were used for repository inspection and reference searches."
+}

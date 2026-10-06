@@ -35,6 +35,7 @@ function ChipEditor({ scene, onSet, onReset, edited }: { scene: Scene; onSet: (w
       )}
       <span className="chip add">
         <input
+          type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {

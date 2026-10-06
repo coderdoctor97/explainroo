@@ -1,0 +1,20 @@
+[
+  {
+    "query": "input type=\"email\" OR input type=\"tel\" OR input type=\"url\" OR input type=\"number\" OR input type=\"date\" language:HTML stars:>100",
+    "total_count": 0,
+    "results": [],
+    "error": null
+  },
+  {
+    "query": "semantic input types accessibility autocomplete language:TypeScript OR language:JavaScript stars:>50",
+    "total_count": 0,
+    "results": [],
+    "error": null
+  },
+  {
+    "query": "form validation input type attribute mobile keyboard language:JavaScript stars:>30",
+    "total_count": 0,
+    "results": [],
+    "error": null
+  }
+]

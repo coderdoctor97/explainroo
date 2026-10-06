@@ -23,6 +23,8 @@ import { checkVideoAccessibility, checkVideoAccessibilityText } from '../scripts
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 import { checkSemanticHtml } from '../scripts/check-semantic-html.mjs';
+import { checkInputTypes } from '../scripts/check-input-types.mjs';
+import { inputAxeViolations } from '../tests/input-types/helpers.mjs';
 import { semanticAxeViolations } from '../tests/semantic-html/helpers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -623,6 +625,10 @@ ok(
 );
 const idPages = [];
 async function uniqueIdsOn(step) {
+  const inputProblems = checkInputTypes(window.document);
+  ok(`input types: ${step}`, inputProblems.length === 0, inputProblems.join("; "));
+  const inputViolations = await inputAxeViolations(window.document);
+  ok(`axe input attributes: ${step}`, inputViolations.length === 0, JSON.stringify(inputViolations));
   const semanticProblems = checkSemanticHtml(window.document);
   ok(`semantic HTML: ${step}`, semanticProblems.length === 0, semanticProblems.join("; "));
   const violations = await semanticAxeViolations(window.document);
@@ -674,6 +680,7 @@ const savedHeading = await until(async () => {
 ok('a renamed heading is written to the project file', !!savedHeading, JSON.stringify(Object.values((await call(`/projects/${id}`)).studio.plan.headings)));
 
 const chipInput = $('.chips .chip.add input');
+ok('scene keyword input explicitly declares text', chipInput?.getAttribute('type') === 'text');
 await setField(chipInput, 'cache');
 await act(async () => {
   chipInput.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
