@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ScenePlanForm } from '../components/ScenePlanForm';
 import { fmtTime, type PlanAnswer, type PlanOptions, type ProjectStatus, type Scene } from '../api';
 import { Hang, Icon, Panel, Seg } from '../components/ui';
 
@@ -157,7 +158,7 @@ function SceneRow({ scene, current, status, options, onPatch, onSeek, splitIndex
   );
 }
 
-export function Plan({ plan, status, options, time, currentWord, onPatch, onAnalyze, onSeek, busy }: {
+export function Plan({ plan, status, options, time, currentWord, onPatch, onAnalyze, onReplan, onSeek, busy }: {
   plan: PlanAnswer | null;
   status: ProjectStatus;
   options: PlanOptions;
@@ -165,6 +166,7 @@ export function Plan({ plan, status, options, time, currentWord, onPatch, onAnal
   currentWord: number | null;
   onPatch: (plan: Partial<PlanOptions>) => void;
   onAnalyze: () => void;
+  onReplan: (values: Pick<PlanOptions, 'wordsPerScene' | 'maxSceneSeconds'>) => Promise<void>;
   onSeek: (t: number) => void;
   busy: boolean;
 }) {
@@ -202,34 +204,8 @@ export function Plan({ plan, status, options, time, currentWord, onPatch, onAnal
       <Panel title="How the transcript is cut">
         <div className="row" style={{ gap: 'var(--space-sm)' }}>
           <Seg value={options.strategy} options={STRATEGIES} onChange={(v) => onPatch({ strategy: v })} label="scene split" />
-          <label className="field" style={{ width: 'auto' }}>
-            <span>words per scene</span>
-            <input
-              type="number"
-              aria-label="words per scene"
-              min={8}
-              max={120}
-              value={options.wordsPerScene}
-              onChange={(e) => onPatch({ wordsPerScene: Math.max(8, Math.min(120, Number(e.target.value) || 36)) })}
-              style={{ width: '5rem' }}
-            />
-          </label>
-          <label className="field" style={{ width: 'auto' }}>
-            <span>longest scene (s)</span>
-            <input
-              type="number"
-              aria-label="longest scene seconds"
-              min={4}
-              max={40}
-              value={options.maxSceneSeconds}
-              onChange={(e) => onPatch({ maxSceneSeconds: Math.max(4, Math.min(40, Number(e.target.value) || 12)) })}
-              style={{ width: '5rem' }}
-            />
-          </label>
-          <button className="btn" onClick={onAnalyze} disabled={busy}>
-            Re-plan
-          </button>
         </div>
+        <ScenePlanForm options={options} busy={busy} onSubmit={onReplan} />
         <p className="mono dim" style={{ marginTop: '0.4rem' }}>
           {options.cuts.length} hand-made cut{options.cuts.length === 1 ? '' : 's'} · {options.merges.length} merge
           {options.merges.length === 1 ? '' : 's'}

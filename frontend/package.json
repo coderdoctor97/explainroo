@@ -1,5 +1,7 @@
 {
   "devDependencies": {
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/user-event": "14.6.7",
     "axe-core": "4.14.0"
   },
   "private": true,
@@ -7,6 +9,7 @@
   "scripts": {
     "test:semantic": "node --test tests/semantic-html/*.test.js",
     "lint:semantic": "node --test tests/semantic-html/lint.test.js",
-    "test:input-types": "node --test tests/input-types/*.test.js"
+    "test:input-types": "node --test tests/input-types/*.test.js",
+    "test:validation": "node --test tests/form-validation/*.test.js"
   }
 }

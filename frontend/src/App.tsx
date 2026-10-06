@@ -411,12 +411,22 @@ export default function App() {
           )}
           {stage === 'plan' && (
             <Plan
+              key={id}
               plan={plan}
               status={state.status}
               options={studio!.plan}
               time={time}
               currentWord={currentWord}
               onPatch={patchPlan}
+              onReplan={async (values) => {
+                // Do not use patch(): it handles errors globally. This path must
+                // propagate API field errors back to the form and await saving.
+                await api.patch(id, { plan: { ...studio!.plan, ...values } });
+                setState((current) => current && current.id === id
+                  ? { ...current, studio: { ...current.studio, plan: { ...current.studio.plan, ...values } } }
+                  : current);
+                setJob(await api.analyze(id));
+              }}
               onAnalyze={analyze}
               onSeek={seek}
               busy={busy}

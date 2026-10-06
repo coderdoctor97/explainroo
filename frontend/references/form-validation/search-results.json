@@ -1,0 +1,92 @@
+[
+  {
+    "query": "\"aria-invalid\" \"aria-describedby\" \"validation\" language:TSX",
+    "count": 35648,
+    "results": [
+      {
+        "url": "https://github.com/pythoncat1/Del-High-Store-Repls/blob/faf7bdfa508b2a70374993d739eb41b12ab13a56/rui/DetailedInput.tsx",
+        "path": "rui/DetailedInput.tsx"
+      },
+      {
+        "url": "https://github.com/civdix/Hennge-Challenge-front-end/blob/5aeb6828d570be34813b7ad7ec52fa56593f726c/create-user-form.tsx",
+        "path": "create-user-form.tsx"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "\"aria-live\" \"polite\" \"error\" language:TSX",
+    "count": 417047,
+    "results": [
+      {
+        "url": "https://github.com/smile-plzz/L2-Writing-AI-Sandbox/blob/95d59c803083dd2cdfe91edcab58d82de97e526f/src/ui.tsx",
+        "path": "src/ui.tsx"
+      },
+      {
+        "url": "https://github.com/T3-Content/quipslop/blob/ccaa86b4a65bfb4b9d88f5a8a1f2257abc655461/admin.tsx",
+        "path": "admin.tsx"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "\"role=alert\" \"form\" language:TSX",
+    "count": 3712,
+    "results": [
+      {
+        "url": "https://github.com/supabase/supabase/blob/dc95335a8db33f99d5afe021c8fe4ea3ff6906e9/apps/studio/components/interfaces/Settings/Infrastructure/ReadReplicas/ReadReplicaForm/index.tsx",
+        "path": "apps/studio/components/interfaces/Settings/Infrastructure/ReadReplicas/ReadReplicaForm/index.tsx"
+      },
+      {
+        "url": "https://github.com/joshdaws/carson-os/blob/48abcc3a8b2bad97bbf52390e4f05f01e808802c/ui/src/components/ui/form-field.tsx",
+        "path": "ui/src/components/ui/form-field.tsx"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "\"jest\" \"aria-invalid\" \"test\"",
+    "count": 16304,
+    "results": [
+      {
+        "url": "https://github.com/bootstrap-vue/bootstrap-vue/blob/9a246f45fc813f161df291fc7d6197febf8afaf4/CHANGELOG-OLD.md",
+        "path": "CHANGELOG-OLD.md"
+      },
+      {
+        "url": "https://github.com/plmsz/courses_front/blob/0878f1e320d3d373166a1083c9d50ac9672c8562/Testing_React_Jest_TL.md",
+        "path": "Testing_React_Jest_TL.md"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "\"testing-library\" \"getByRole\" \"alert\"",
+    "count": 253687,
+    "results": [
+      {
+        "url": "https://github.com/testing-library/jest-dom/blob/3782c78b3dc9824675afe0cb8f1722f8c96f494d/README.md",
+        "path": "README.md"
+      },
+      {
+        "url": "https://github.com/Yosef-Adel/dotfiles/blob/463a238335d0f685d3e9d62e1469ec53e8f43a6a/docs/testing-library.md",
+        "path": "docs/testing-library.md"
+      }
+    ],
+    "error": null
+  },
+  {
+    "query": "\"cypress\" \"aria-invalid\" accessibility",
+    "count": 1090,
+    "results": [
+      {
+        "url": "https://github.com/aj-geddes/useful-ai-prompts/blob/3f5182cfd739fc113f4af5244a1cf342ad7f7911/skills/accessibility-testing/references/cypress-accessibility-testing.md",
+        "path": "skills/accessibility-testing/references/cypress-accessibility-testing.md"
+      },
+      {
+        "url": "https://github.com/Jinntec/Fore/blob/a88e9f4e3a38a2afeb7980c4820cfc20cb40c2e7/ACCESSIBILITY.md",
+        "path": "ACCESSIBILITY.md"
+      }
+    ],
+    "error": null
+  }
+]

@@ -304,3 +304,18 @@ input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* Accessible validation: scoped colors give >= 4.5:1 text contrast on white.
+   Text and borders both identify errors; never remove the focus outline. */
+.scene-plan-form { margin-top: var(--space-sm); }
+.validated-field { flex: 1 1 12rem; max-width: 24rem; }
+.validated-field label { display: block; font-weight: 600; }
+.required-note, .field-hint { font-size: var(--text-sm); }
+.validated-field input { width: 100%; }
+.validated-field input[aria-invalid="true"] { border: 2px solid #a11212; }
+.field-error:not(:empty), .error-summary { color: #a11212; background: #fff; padding: var(--space-2xs); }
+.field-error { margin: 0; font-size: var(--text-sm); }
+.error-summary { border: 2px solid #a11212; margin-bottom: var(--space-sm); }
+.error-summary a { color: inherit; text-decoration: underline; }
+.error-summary:focus, .error-summary a:focus-visible,
+.validated-field input:focus-visible { outline: 3px solid #174ea6; outline-offset: 3px; }

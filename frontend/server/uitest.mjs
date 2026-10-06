@@ -671,6 +671,29 @@ const rows = $$('.scenes li.scene');
 ok('scene rows show their text and their timing', rows.length >= 2 && /\d+:\d\d/.test(rows[0].textContent), rows[0]?.textContent.replace(/\s+/g, ' ').slice(0, 90));
 await uniqueIdsOn('Scene plan');
 
+// Exercise real controlled inputs and the real API: no invalid draft is saved.
+const wordCount = $('input[aria-label="words per scene"]');
+const sceneSeconds = $('input[aria-label="longest scene seconds"]');
+const savedSettings = (await call(`/projects/${id}`)).studio.plan;
+const trafficBeforeValidation = traffic.length;
+await setField(wordCount, '');
+await setField(sceneSeconds, '41');
+await click(byText('.scene-plan-form button', 'Re-plan'));
+ok('validation: invalid submit focuses the error summary', window.document.activeElement === $('.error-summary'));
+ok('validation: all invalid fields are linked', $$('.error-summary a').length === 2 && wordCount.getAttribute('aria-invalid') === 'true');
+ok('validation: invalid draft sends no settings PATCH', !traffic.slice(trafficBeforeValidation).some((request) => request.startsWith('PATCH')));
+await click($('.error-summary a'));
+ok('validation: summary link focuses its field', window.document.activeElement === wordCount);
+await setField(wordCount, String(savedSettings.wordsPerScene));
+await setField(sceneSeconds, String(savedSettings.maxSceneSeconds));
+await click(byText('.scene-plan-form button', 'Re-plan'));
+const replanned = await until(async () => {
+  const latest = await call(`/projects/${id}/job`);
+  return latest?.kind === 'analyze' && latest.status === 'done' ? latest : null;
+});
+ok('validation: corrected settings save and re-plan through the API', !!replanned && !$('.error-summary'));
+
+
 const heading = $('.scenes li.scene input[type="text"]');
 await setField(heading, 'Cached copies are close by');
 const savedHeading = await until(async () => {
