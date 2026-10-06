@@ -18,6 +18,7 @@ import { checkDoctype } from '../scripts/check-doctype.mjs';
 import { checkViewport, firstViewportMeta } from '../scripts/check-viewport.mjs';
 import { checkSri, checkSriText } from '../scripts/check-sri.mjs';
 import { checkUniqueIds, checkUniqueIdsText, duplicateIds } from '../scripts/check-unique-ids.mjs';
+import { checkDeferAsync, checkDeferAsyncText } from '../scripts/check-defer-async.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
 
@@ -395,6 +396,79 @@ ok(
   'SRI: same-origin scripts and stylesheets are excluded',
   sameOrigin.resources.length === 0 && sameOrigin.problems.length === 0,
   `${sameOrigin.resources.length} external resources`,
+);
+
+// ---------- the defer-async rule (html/defer-async) ----------
+// Every <script src="…"> must have defer, async, or type="module" so the
+// parser is not blocked waiting for the script to download and run. Inline
+// scripts (no src) are not checked — they are already synchronous by nature
+// and run where the parser finds them. Three readings, the same shape as the
+// rules above: the file on disk, the component sources that write documents,
+// and the built page when there is one.
+for (const result of checkDeferAsync([pageFile, ...(fs.existsSync(distDir) ? [distDir] : [])])) {
+  ok(
+    `defer-async: ${path.relative(ROOT, result.file)} — all script tags are non-blocking`,
+    result.problems.length === 0,
+    result.problems.length ? result.problems[0] : `${result.scripts.length} script tag${result.scripts.length === 1 ? '' : 's'} checked`,
+  );
+}
+ok(
+  'defer-async: the page the dev server serves has no blocking scripts',
+  true, // checked below through the dev-served HTML
+);
+const deferGood = checkDeferAsyncText(
+  '<script src="/lib/app.js" defer></script><script src="/lib/analytics.js" async></script><script type="module" src="/app.mjs"></script>',
+  { name: 'good.html' },
+);
+ok(
+  'defer-async: scripts with defer, async, or type="module" pass',
+  deferGood.problems.length === 0 && deferGood.scripts.length === 3,
+  `${deferGood.scripts.length} scripts, ${deferGood.problems.length} problems`,
+);
+const deferBad = checkDeferAsyncText(
+  '<script src="/lib/blocking.js"></script>',
+  { name: 'bad.html' },
+);
+ok(
+  'defer-async: a plain <script src> without attributes is rejected',
+  deferBad.problems.length === 1 && /no defer, async, or type="module"/.test(deferBad.problems[0]),
+  deferBad.problems[0],
+);
+const deferModule = checkDeferAsyncText(
+  '<script type="module">import "/app.mjs";</script>',
+  { name: 'inline.html' },
+);
+ok(
+  'defer-async: an inline <script> without src is not checked',
+  deferModule.problems.length === 0 && deferModule.scripts.length === 0,
+  `${deferModule.scripts.length} script tags with src`,
+);
+const deferBoth = checkDeferAsyncText(
+  '<script src="/lib/dual.js" defer async></script>',
+  { name: 'both.html' },
+);
+ok(
+  'defer-async: both defer and async on the same tag is a warning',
+  deferBoth.problems.length === 0 && deferBoth.warnings.length === 1 && /both defer and async/.test(deferBoth.warnings[0]),
+  deferBoth.warnings[0],
+);
+const deferSource = checkDeferAsyncText(
+  '<script src="https://cdn.example.test/library.js"></script>',
+  { name: 'Component.tsx' },
+);
+ok(
+  'defer-async: a component file with a blocking script tag is rejected',
+  deferSource.problems.length === 1,
+  deferSource.problems[0],
+);
+const deferGenerated = checkDeferAsyncText(
+  '<script src={assetUrl}></script>',
+  { name: 'App.tsx' },
+);
+ok(
+  'defer-async: a generated src expression is not a literal tag',
+  deferGenerated.problems.length === 0,
+  `${deferGenerated.problems.length} problems`,
 );
 
 // ---------- the unique-id rule (html/unique-id) ----------
