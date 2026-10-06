@@ -230,70 +230,74 @@ export default function App() {
   if (!id || !state) {
     return (
       <div className="start">
-        <h1>explainroo studio</h1>
-        <p>
-          You bring the words, the recording and the timings you already have. The studio lines them up, cuts the narration into
-          scenes, writes the files explainroo needs and renders the video. No API keys: everything runs on this machine, and if
-          you have no timings yet, the local speech model can make them from the voice-over.
-        </p>
-        <div className="row" style={{ marginTop: 'var(--space-md)', gap: 'var(--space-2xs)' }}>
-          <input
-            type="text"
-            placeholder="What is the video about?"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={async (e) => {
-              if (e.key === 'Enter') {
-                const created = await api.create(newName || 'Untitled video');
-                setProjects((await api.projects()).projects);
-                setId(created.id);
-                setNewName('');
-              }
-            }}
-            style={{ maxWidth: '22rem' }}
-          />
-          <button
-            className="btn primary"
-            onClick={async () => {
-              try {
-                const created = await api.create(newName || 'Untitled video');
-                setProjects((await api.projects()).projects);
-                setId(created.id);
-                setNewName('');
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            Start a video
-          </button>
-        </div>
-        {error && <p className="mono err" style={{ marginTop: 'var(--space-xs)' }}>{error}</p>}
-        {projects.length > 0 && (
-          <ul className="projects">
-            {projects.map((p) => (
-              <li key={p.id}>
-                <span className="name">{p.name}</span>
-                <span className="meta">
-                  {p.hasSources}/3 files · {p.built ? 'built' : 'not built'} · {p.rendered ? 'rendered' : 'not rendered'}{' '}
-                  <button className="btn quiet small" onClick={() => setId(p.id)}>
-                    open
-                  </button>
-                  <button
-                    className="btn quiet small"
-                    onClick={async () => {
-                      if (!confirm(`Delete "${p.name}" and its files?`)) return;
-                      await api.remove(p.id);
-                      setProjects((await api.projects()).projects);
-                    }}
-                  >
-                    delete
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <header><h1>explainroo studio</h1></header>
+        <main>
+          <p>
+            You bring the words, the recording and the timings you already have. The studio lines them up, cuts the narration into
+            scenes, writes the files explainroo needs and renders the video. If you have no timings yet, the local speech model
+            can make them from the voice-over.
+          </p>
+          <div className="row" style={{ marginTop: 'var(--space-md)', gap: 'var(--space-2xs)' }}>
+            <input
+              type="text"
+              placeholder="What is the video about?"
+              aria-label="Video topic"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  const created = await api.create(newName || 'Untitled video');
+                  setProjects((await api.projects()).projects);
+                  setId(created.id);
+                  setNewName('');
+                }
+              }}
+              style={{ maxWidth: '22rem' }}
+            />
+            <button
+              className="btn primary"
+              onClick={async () => {
+                try {
+                  const created = await api.create(newName || 'Untitled video');
+                  setProjects((await api.projects()).projects);
+                  setId(created.id);
+                  setNewName('');
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+            >
+              Start a video
+            </button>
+          </div>
+          {error && <p className="mono err" style={{ marginTop: 'var(--space-xs)' }}>{error}</p>}
+          {projects.length > 0 && (
+            <ul className="projects">
+              {projects.map((p) => (
+                <li key={p.id}>
+                  <span className="name">{p.name}</span>
+                  <span className="meta">
+                    {p.hasSources}/3 files · {p.built ? 'built' : 'not built'} · {p.rendered ? 'rendered' : 'not rendered'}{' '}
+                    <button className="btn quiet small" onClick={() => setId(p.id)}>
+                      open
+                    </button>
+                    <button
+                      className="btn quiet small"
+                      onClick={async () => {
+                        if (!confirm(`Delete "${p.name}" and its files?`)) return;
+                        await api.remove(p.id);
+                        setProjects((await api.projects()).projects);
+                      }}
+                    >
+                      delete
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </main>
+        <footer><p>No API keys: everything runs on this machine.</p></footer>
       </div>
     );
   }
@@ -303,9 +307,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="masthead">
-        <span className="wordmark">
+        <h1 className="wordmark">
           <b>explainroo</b> <span>studio</span>
-        </span>
+        </h1>
         <span className="dim">/</span>
         <select
           value={id}
@@ -445,7 +449,7 @@ export default function App() {
           )}
         </main>
 
-        <aside className="readout">
+        <aside className="readout" aria-label="Project readout">
           <Readout state={state} plan={plan} />
         </aside>
       </div>
@@ -461,18 +465,19 @@ export default function App() {
         onToggle={toggle}
         onSeek={seek}
         onStep={(d) => seek(time + d)}
-      />
-      <audio
-        ref={audioRef}
-        src={ready ? api.audioUrl(id) : undefined}
-        onEnded={() => setPlaying(false)}
-        onPause={() => setPlaying(false)}
-        preload="metadata"
-        aria-label="Voice-over audio"
-      />
-      <span className="visually-hidden" aria-live="polite">
-        {job ? `${job.label}: ${job.status}` : ''}
-      </span>
+      >
+        <audio
+          ref={audioRef}
+          src={ready ? api.audioUrl(id) : undefined}
+          onEnded={() => setPlaying(false)}
+          onPause={() => setPlaying(false)}
+          preload="metadata"
+          aria-label="Voice-over audio"
+        />
+        <span className="visually-hidden" aria-live="polite">
+          {job ? `${job.label}: ${job.status}` : ''}
+        </span>
+      </Transport>
     </div>
   );
 }

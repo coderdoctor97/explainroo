@@ -1,0 +1,78 @@
+HEAD:frontend/src/App.tsx:232:      <div className="start">
+HEAD:frontend/src/App.tsx:239:        <div className="row" style={{ marginTop: 'var(--space-md)', gap: 'var(--space-2xs)' }}>
+HEAD:frontend/src/App.tsx:304:    <div className="app">
+HEAD:frontend/src/App.tsx:349:      <div className="bench">
+HEAD:frontend/src/components/AccessibleVideo.tsx:80:    <div className="accessible-video stack">
+HEAD:frontend/src/components/AccessibleVideo.tsx:106:        <div className="transcript-toggle">
+HEAD:frontend/src/components/AccessibleVideo.tsx:117:            <div
+HEAD:frontend/src/components/Frame.tsx:30:      <div className="frame" style={{ background: style.swatch.bg, color: style.swatch.ink, fontFamily: font('body') }}>
+HEAD:frontend/src/components/Frame.tsx:31:        <div className="f-count">
+HEAD:frontend/src/components/Frame.tsx:34:        <div className="f-head" style={{ fontFamily: font('display'), fontSize: 'clamp(1.3rem, 3.4vw, 2.2rem)', maxWidth: '86%', margin: 'auto', textAlign: 'center' }}>
+HEAD:frontend/src/components/Frame.tsx:37:        <div className="f-note" style={{ textAlign: 'center', marginTop: 0 }}>
+HEAD:frontend/src/components/Frame.tsx:45:    <div className="frame" style={{ background: style.swatch.bg, color: style.swatch.ink, fontFamily: font('body') }}>
+HEAD:frontend/src/components/Frame.tsx:46:      <div className="f-count">
+HEAD:frontend/src/components/Frame.tsx:49:      <div className="f-head" style={{ fontFamily: font('display') }}>
+HEAD:frontend/src/components/Frame.tsx:52:      <div className="f-rule" style={{ background: style.swatch.accent }} />
+HEAD:frontend/src/components/Frame.tsx:53:      <div className="f-body" style={{ fontFamily: font(role) }}>
+HEAD:frontend/src/components/Frame.tsx:56:      <div className="f-chips">
+HEAD:frontend/src/components/Readout.tsx:42:        <div style={{ marginBottom: 'var(--space-sm)' }}>
+HEAD:frontend/src/components/Readout.tsx:55:        <div style={{ marginBottom: 'var(--space-sm)' }}>
+HEAD:frontend/src/components/Transport.tsx:64:    <div className="transport">
+HEAD:frontend/src/components/Transport.tsx:65:      <div className="line">
+HEAD:frontend/src/components/Transport.tsx:66:        <div className="row" style={{ gap: '0.35rem' }}>
+HEAD:frontend/src/components/Transport.tsx:77:        <div className="scrub">
+HEAD:frontend/src/components/Transport.tsx:78:          <div className="track" />
+HEAD:frontend/src/components/Transport.tsx:79:          <div className="fill" style={{ width: pct(time) }} />
+HEAD:frontend/src/components/Transport.tsx:81:            <div key={s.id} className="tick" style={{ left: pct(s.start) }} title={s.id} />
+HEAD:frontend/src/components/Transport.tsx:83:          <div className="cursor" style={{ left: pct(time) }} />
+HEAD:frontend/src/components/Transport.tsx:95:        <div className="time mono nowrap">
+HEAD:frontend/src/components/Transport.tsx:100:      <div className="karaoke" style={font ? { fontFamily: `"${font}", var(--font-body)` } : undefined}>
+HEAD:frontend/src/components/ui.tsx:41:    <div className="seg" role="group" aria-label={label}>
+HEAD:frontend/src/components/ui.tsx:62:    <div className="panel">
+HEAD:frontend/src/stages/Look.tsx:46:        <div className="row" style={{ gap: 'var(--space-sm)', alignItems: 'flex-end' }}>
+HEAD:frontend/src/stages/Look.tsx:57:          <div className="swatches" aria-hidden="true">
+HEAD:frontend/src/stages/Look.tsx:69:      <div className="grid-2" style={{ marginTop: 'var(--space-sm)' }}>
+HEAD:frontend/src/stages/Look.tsx:86:          <div className="row" style={{ marginTop: 'var(--space-2xs)', gap: 'var(--space-sm)' }}>
+HEAD:frontend/src/stages/Look.tsx:87:            <div>
+HEAD:frontend/src/stages/Look.tsx:88:              <div className="mono dim" style={{ marginBottom: '0.2rem' }}>
+HEAD:frontend/src/stages/Look.tsx:98:            <div>
+HEAD:frontend/src/stages/Look.tsx:99:              <div className="mono dim" style={{ marginBottom: '0.2rem' }}>
+HEAD:frontend/src/stages/Look.tsx:111:      <div className="grid-2" style={{ marginTop: 'var(--space-sm)' }}>
+HEAD:frontend/src/stages/Look.tsx:113:          <div className="look-preview">
+HEAD:frontend/src/stages/Look.tsx:129:          <div className="row" style={{ gap: 'var(--space-sm)' }}>
+HEAD:frontend/src/stages/Look.tsx:169:            <div className="row" style={{ gap: 'var(--space-sm)', marginTop: 'var(--space-2xs)' }}>
+HEAD:frontend/src/stages/Plan.tsx:21:    <div className="chips">
+HEAD:frontend/src/stages/Plan.tsx:77:      <div className="top">
+HEAD:frontend/src/stages/Plan.tsx:96:      <div
+HEAD:frontend/src/stages/Plan.tsx:103:      <div className="row" style={{ marginTop: '0.35rem' }}>
+HEAD:frontend/src/stages/Plan.tsx:133:      <div className="row" style={{ gap: '0.4rem' }}>
+HEAD:frontend/src/stages/Plan.tsx:180:        <div className="row">
+HEAD:frontend/src/stages/Plan.tsx:202:        <div className="row" style={{ gap: 'var(--space-sm)' }}>
+HEAD:frontend/src/stages/Render.tsx:42:    <div className="stack" style={{ marginTop: 'var(--space-2xs)' }}>
+HEAD:frontend/src/stages/Render.tsx:43:      <div className="status-line">
+HEAD:frontend/src/stages/Render.tsx:52:        <div role="progressbar" aria-label={`${job.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct ?? 0}>
+HEAD:frontend/src/stages/Render.tsx:53:          <div className="progress-track">
+HEAD:frontend/src/stages/Render.tsx:54:            <div className="progress-fill" style={{ width: pct !== null ? `${pct}%` : undefined }} data-indeterminate={pct === null ? 'true' : undefined} />
+HEAD:frontend/src/stages/Render.tsx:63:      <div ref={wrapRef}>
+HEAD:frontend/src/stages/Render.tsx:116:        <div className="row" style={{ gap: '0.4rem' }}>
+HEAD:frontend/src/stages/Render.tsx:133:          <div className="drop over" style={{ marginTop: 'var(--space-xs)' }}>
+HEAD:frontend/src/stages/Render.tsx:134:            <div>
+HEAD:frontend/src/stages/Render.tsx:135:              <div className="title">A scene is waiting for an image</div>
+HEAD:frontend/src/stages/Render.tsx:136:              <div className="hint">
+HEAD:frontend/src/stages/Render.tsx:142:            <div className="actions">
+HEAD:frontend/src/stages/Render.tsx:152:      <div className="grid-2" style={{ marginTop: 'var(--space-sm)' }}>
+HEAD:frontend/src/stages/Render.tsx:155:            <div className="output stack">
+HEAD:frontend/src/stages/Render.tsx:182:              <div className="stills">
+HEAD:frontend/src/stages/Render.tsx:232:        <div className="row" style={{ gap: '0.4rem' }}>
+HEAD:frontend/src/stages/Sources.tsx:38:    <div
+HEAD:frontend/src/stages/Sources.tsx:51:      <div>
+HEAD:frontend/src/stages/Sources.tsx:52:        <div className="title">
+HEAD:frontend/src/stages/Sources.tsx:56:        <div className="hint">{info.ok ? `${fmtBytes(info.bytes)} · dropped in` : slot.hint}</div>
+HEAD:frontend/src/stages/Sources.tsx:58:      <div className="actions">
+HEAD:frontend/src/stages/Sources.tsx:108:      <div className="stack">
+HEAD:frontend/src/stages/Sources.tsx:144:      <div className="row" style={{ marginTop: 'var(--space-sm)' }}>
+HEAD:frontend/src/stages/Sources.tsx:160:      <div
+HEAD:frontend/src/stages/Sources.tsx:174:        <div>
+HEAD:frontend/src/stages/Sources.tsx:175:          <div className="title">Drop images here</div>
+HEAD:frontend/src/stages/Sources.tsx:176:          <div className="hint">png, jpg, webp, gif or svg</div>
+HEAD:frontend/src/stages/Sources.tsx:178:        <div className="actions">

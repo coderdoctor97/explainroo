@@ -258,3 +258,12 @@ whether it works.
   you run it behind a proxy or a tunnel, set `STUDIO_ALLOWED_HOSTS` (comma
   separated) or `STUDIO_ALLOW_ALL_HOSTS=1`, and `STUDIO_HMR_PORT=443` when the
   proxy terminates TLS.
+
+## Semantic HTML checks
+
+The start screen and workbench use native landmarks and headed sections.
+Install the frontend-only test dependency with `npm ci --prefix frontend`,
+then run `npm run --prefix frontend test:semantic`. The existing
+`npm run test:ui` also checks landmarks and headings at each workflow step.
+See [the semantic layout audit](docs/semantic-html.md) for the scope, test
+commands, retained layout divs, and external validation/CI limitations.

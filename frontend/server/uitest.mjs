@@ -22,6 +22,8 @@ import { checkDeferAsync, checkDeferAsyncText } from '../scripts/check-defer-asy
 import { checkVideoAccessibility, checkVideoAccessibilityText } from '../scripts/check-video-accessibility.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
+import { checkSemanticHtml } from '../scripts/check-semantic-html.mjs';
+import { semanticAxeViolations } from '../tests/semantic-html/helpers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 let checks = 0;
@@ -620,7 +622,11 @@ ok(
   idFixtureFound.map((d) => `${d.id}×${d.count}`).join(', '),
 );
 const idPages = [];
-function uniqueIdsOn(step) {
+async function uniqueIdsOn(step) {
+  const semanticProblems = checkSemanticHtml(window.document);
+  ok(`semantic HTML: ${step}`, semanticProblems.length === 0, semanticProblems.join("; "));
+  const violations = await semanticAxeViolations(window.document);
+  ok(`axe landmarks and headings: ${step}`, violations.length === 0, JSON.stringify(violations));
   idPages.push(step);
   const dupes = duplicateIds(window.document);
   const seen = $$('[id]');
@@ -634,7 +640,7 @@ function uniqueIdsOn(step) {
 // ---------- the shell ----------
 await until(async () => (!!$('.app') ? true : null), { tries: 40 });
 ok('the app mounts', !!$('.app'), $('.app') ? 'workbench' : shot());
-uniqueIdsOn('Sources');
+await uniqueIdsOn('Sources');
 ok('the project name is in the masthead', text().includes('What a cache does'), shot());
 ok('the rail lists the four steps', ['Sources', 'Scene plan', 'Look', 'Build and render'].every((s) => text().includes(s)));
 ok('the readout knows the three files arrived', /files\s*3 \/ 3/.test(text()), text().match(/files[^A-Z]*/)?.[0]);
@@ -657,7 +663,7 @@ await click(byText('.rail button', 'Scene plan'));
 ok('the plan has one row per scene', $$('.scenes li.scene').length >= 2, `${$$('.scenes li.scene').length} rows`);
 const rows = $$('.scenes li.scene');
 ok('scene rows show their text and their timing', rows.length >= 2 && /\d+:\d\d/.test(rows[0].textContent), rows[0]?.textContent.replace(/\s+/g, ' ').slice(0, 90));
-uniqueIdsOn('Scene plan');
+await uniqueIdsOn('Scene plan');
 
 const heading = $('.scenes li.scene input[type="text"]');
 await setField(heading, 'Cached copies are close by');
@@ -696,7 +702,7 @@ const savedStyle = await until(async () => (await call(`/projects/${id}`)).studi
 ok('choosing a look is saved', !!savedStyle);
 ok('the frame preview is drawn in that look', !!$('.frame'), $('.frame')?.style.background);
 ok('the swatches follow the look', $$('.swatch').length >= 3, `${$$('.swatch').length} swatches`);
-uniqueIdsOn('Look');
+await uniqueIdsOn('Look');
 
 await setField($('input[aria-label="pace"]'), '1.25');
 const savedPace = await until(async () => (await call(`/projects/${id}`)).studio.look.pace === 1.25);
@@ -727,7 +733,7 @@ ok(
   !!refreshed && /\d\s?wav/.test(readout),
   refreshed ? readout.slice(0, 120) : `${readout.slice(0, 90)} · banner "${$('.main .err')?.textContent?.slice(0, 60) || 'none'}" · traffic ${traffic.slice(-4).join(' , ')}`,
 );
-uniqueIdsOn('Build and render');
+await uniqueIdsOn('Build and render');
 
 // ---------- the generated project, through the same client the page uses ----------
 const report = (await projectApi.state(id)).status.report;
@@ -750,7 +756,7 @@ ok(
 // The last reading of the unique-id rule: the page was scanned on all four
 // steps, and the one id the shell owns still resolves to exactly one element,
 // which is what the page's own script asks for (main.tsx: getElementById).
-uniqueIdsOn('after a refresh');
+await uniqueIdsOn('after a refresh');
 ok(
   'unique ids: the page was checked at every step',
   ['Sources', 'Scene plan', 'Look', 'Build and render', 'after a refresh'].every((step) => idPages.includes(step)),

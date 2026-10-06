@@ -1,0 +1,14 @@
+{
+  "checkedOn": "2026-10-06",
+  "ruleUrl": "https://frontendchecklist.io/rules/html/html5-semantic-elements",
+  "attemptedEndpoint": "https://mcp.frontendchecklist.io/rules/html5-semantic-elements",
+  "accept": "application/json",
+  "status": "unavailable",
+  "error": "curl: (35) OpenSSL SSL_connect: SSL_ERROR_SYSCALL",
+  "ruleDescription": null,
+  "checklistItems": null,
+  "relatedRules": null,
+  "exampleMarkup": null,
+  "verificationResult": null,
+  "note": "Local attempt log, not an MCP response or a verification pass. Endpoint slug and verification endpoint could not be confirmed."
+}

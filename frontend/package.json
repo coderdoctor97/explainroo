@@ -1,0 +1,11 @@
+{
+  "devDependencies": {
+    "axe-core": "4.14.0"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:semantic": "node --test tests/semantic-html/*.test.js",
+    "lint:semantic": "node --test tests/semantic-html/lint.test.js"
+  }
+}
