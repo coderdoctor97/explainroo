@@ -155,6 +155,7 @@ export function Render({ id, status, studio, job, doctor, busy, run, onRefresh }
             <div className="output stack">
               <AccessibleVideo
                 src={api.fileUrl(id, 'out/video.mp4')}
+                poster={status.stills?.[0] ? api.fileUrl(id, `out/stills/${status.stills[0]}`) : undefined}
                 title={status.report?.title || studio.name || 'Video'}
                 captions={[{ src: api.captionsUrl(id), srclang: 'en', label: 'English captions', default: true }]}
                 transcriptUrl={api.transcriptUrl(id)}

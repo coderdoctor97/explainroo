@@ -1,0 +1,80 @@
+[
+  {
+    "file": "frontend/src/App.tsx",
+    "line": 241,
+    "type": "text",
+    "tag": "<input\n              type=\"text\"\n              placeholder=\"What is the video about?\"\n              aria-label=\"Video topic\"\n              value={newName}\n              onChange={(e) => setNewName(e.target.value)}\n              onKeyDown={async (e) => {\n                if (e.key === 'Enter') {\n                  const created = await api.create(newName || 'Untitled video');\n                  setProjects((await api.projects()).projects);\n                  setId(created.id);\n                  setNewName('');\n                }\n              }}\n              style={{ maxWidth: '22rem' }}\n            />"
+  },
+  {
+    "file": "frontend/src/App.tsx",
+    "line": 326,
+    "type": "text",
+    "tag": "<input\n          className=\"who\"\n          type=\"text\"\n          value={studio?.title || ''}\n          placeholder={studio?.name}\n          aria-label=\"video title\"\n          onChange={(e) => patch({ title: e.target.value })}\n          style={{ maxWidth: '16rem', fontSize: 'var(--text-sm)' }}\n        />"
+  },
+  {
+    "file": "frontend/src/components/Transport.tsx",
+    "line": 86,
+    "type": "range",
+    "tag": "<input\n            type=\"range\"\n            min={0}\n            max={Math.max(0.1, length)}\n            step={0.05}\n            value={Math.min(time, length)}\n            disabled={!ready}\n            aria-label=\"Voice-over position\"\n            onChange={(e) => onSeek(Number(e.target.value))}\n          />"
+  },
+  {
+    "file": "frontend/src/components/ui.tsx",
+    "line": 54,
+    "type": "checkbox",
+    "tag": "<input type=\"checkbox\" checked={checked} onChange={(e) => onChange(e.target.checked)} />"
+  },
+  {
+    "file": "frontend/src/stages/Look.tsx",
+    "line": 84,
+    "type": "text",
+    "tag": "<input type=\"text\" aria-label=\"video title\" value={title} onChange={(e) => onTitle(e.target.value)} placeholder=\"How DNS finds a website\" />"
+  },
+  {
+    "file": "frontend/src/stages/Look.tsx",
+    "line": 154,
+    "type": "range",
+    "tag": "<input\n              type=\"range\"\n              aria-label=\"pace\"\n              min={0.7}\n              max={1.6}\n              step={0.05}\n              value={look.pace}\n              onChange={(e) => onPatch({ pace: Number(e.target.value) })}\n            />"
+  },
+  {
+    "file": "frontend/src/stages/Look.tsx",
+    "line": 181,
+    "type": "range",
+    "tag": "<input\n                    type=\"range\"\n                    aria-label={String(key)}\n                    min={min}\n                    max={max}\n                    step={0.05}\n                    value={Number(look[key])}\n                    onChange={(e) => onPatch({ [key]: Number(e.target.value) } as Partial<LookSettings>)}\n                  />"
+  },
+  {
+    "file": "frontend/src/stages/Plan.tsx",
+    "line": 37,
+    "type": null,
+    "tag": "<input\n          value={draft}\n          onChange={(e) => setDraft(e.target.value)}\n          onKeyDown={(e) => {\n            if (e.key === 'Enter') add();\n            if (e.key === 'Escape') setDraft('');\n          }}\n          placeholder=\"add a word\"\n          aria-label={`add a word to scene ${scene.id}`}\n          style={{ border: 0, background: 'none', width: '6.5rem', padding: 0, fontSize: 'var(--text-xs)' }}\n        />"
+  },
+  {
+    "file": "frontend/src/stages/Plan.tsx",
+    "line": 79,
+    "type": "text",
+    "tag": "<input\n          type=\"text\"\n          value={scene.heading}\n          aria-label={`heading of ${scene.id}`}\n          onChange={(e) => setHeading(e.target.value)}\n        />"
+  },
+  {
+    "file": "frontend/src/stages/Plan.tsx",
+    "line": 206,
+    "type": "number",
+    "tag": "<input\n              type=\"number\"\n              aria-label=\"words per scene\"\n              min={8}\n              max={120}\n              value={options.wordsPerScene}\n              onChange={(e) => onPatch({ wordsPerScene: Math.max(8, Math.min(120, Number(e.target.value) || 36)) })}\n              style={{ width: '5rem' }}\n            />"
+  },
+  {
+    "file": "frontend/src/stages/Plan.tsx",
+    "line": 218,
+    "type": "number",
+    "tag": "<input\n              type=\"number\"\n              aria-label=\"longest scene seconds\"\n              min={4}\n              max={40}\n              value={options.maxSceneSeconds}\n              onChange={(e) => onPatch({ maxSceneSeconds: Math.max(4, Math.min(40, Number(e.target.value) || 12)) })}\n              style={{ width: '5rem' }}\n            />"
+  },
+  {
+    "file": "frontend/src/stages/Sources.tsx",
+    "line": 59,
+    "type": "file",
+    "tag": "<input\n          ref={input}\n          type=\"file\"\n          className=\"visually-hidden\"\n          aria-label={`choose ${slot.title}`}\n          onChange={(e) => {\n            pick(e.target.files?.[0]);\n            e.target.value = '';\n          }}\n        />"
+  },
+  {
+    "file": "frontend/src/stages/Sources.tsx",
+    "line": 179,
+    "type": "file",
+    "tag": "<input\n            ref={assetInput}\n            type=\"file\"\n            accept=\"image/*\"\n            className=\"visually-hidden\"\n            aria-label=\"choose an image\"\n            onChange={(e) => {\n              const file = e.target.files?.[0];\n              if (file) onAsset(file, file.name);\n              e.target.value = '';\n            }}\n          />"
+  }
+]

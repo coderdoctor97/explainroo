@@ -258,3 +258,30 @@ whether it works.
   you run it behind a proxy or a tunnel, set `STUDIO_ALLOWED_HOSTS` (comma
   separated) or `STUDIO_ALLOW_ALL_HOSTS=1`, and `STUDIO_HMR_PORT=443` when the
   proxy terminates TLS.
+
+## Semantic HTML checks
+
+The start screen and workbench use native landmarks and headed sections.
+Install the frontend-only test dependency with `npm ci --prefix frontend`,
+then run `npm run --prefix frontend test:semantic`. The existing
+`npm run test:ui` also checks landmarks and headings at each workflow step.
+See [the semantic layout audit](docs/semantic-html.md) for the scope, test
+commands, retained layout divs, and external validation/CI limitations.
+
+## HTML standards validation
+
+Run `npm run --prefix frontend validate:html` and
+`npm run --prefix frontend test:html` after installing frontend dependencies.
+The existing UI test also validates six rendered workflow states. JSON reports
+are written under `frontend/.reports/`. See [HTML validation](docs/html-validation.md)
+for configuration, coverage and the outstanding Nu/MCP and root-CI limitations.
+
+## Video thumbnails
+
+Every production `<video>` must have a nonempty `poster`. Use `AccessibleVideo`:
+it prefers a supplied scene still after it loads and otherwise shows the bundled
+`src/assets/video-thumbnail/placeholder.webp`. Do not remove the fallback or
+replace captions/transcripts with thumbnail text. Run
+`npm run --prefix frontend test:posters` (or all frontend tests with
+`npm test --prefix frontend`). See [video thumbnails](docs/video-thumbnails.md)
+for asset handling, tests and the [MCP attempt record](mcp_rules/video-thumbnail.json).

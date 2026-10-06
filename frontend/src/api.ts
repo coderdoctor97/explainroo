@@ -168,6 +168,17 @@ export type ProjectState = {
   transitions: string[];
 };
 
+export class ApiError extends Error {
+  status: number;
+  fieldErrors?: Record<string, string>;
+  constructor(message: string, status: number, fieldErrors?: Record<string, string>) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.fieldErrors = fieldErrors;
+  }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
@@ -180,7 +191,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     data = { error: text.slice(0, 300) };
   }
-  if (!res.ok) throw new Error((data as { error?: string })?.error || `${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const body = data as { error?: string; fieldErrors?: Record<string, string> };
+    throw new ApiError(body?.error || `${res.status} ${res.statusText}`, res.status, body?.fieldErrors);
+  }
   return data as T;
 }
 

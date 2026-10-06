@@ -22,6 +22,11 @@ import { checkDeferAsync, checkDeferAsyncText } from '../scripts/check-defer-asy
 import { checkVideoAccessibility, checkVideoAccessibilityText } from '../scripts/check-video-accessibility.mjs';
 import { charsetRule } from '../dev.mjs';
 import { projectPaths } from './store.js';
+import { validateHtml, writeReport } from '../scripts/validate-html.mjs';
+import { checkSemanticHtml } from '../scripts/check-semantic-html.mjs';
+import { checkInputTypes } from '../scripts/check-input-types.mjs';
+import { inputAxeViolations } from '../tests/input-types/helpers.mjs';
+import { semanticAxeViolations } from '../tests/semantic-html/helpers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 let checks = 0;
@@ -95,7 +100,7 @@ function sampleFiles() {
 }
 
 // ---------- a page to mount into ----------
-const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+const dom = new JSDOM(fs.readFileSync(path.join(ROOT, 'frontend/index.html'), 'utf8'), {
   url: 'http://localhost:5173/',
   pretendToBeVisual: true,
 });
@@ -159,6 +164,7 @@ await act(async () => {
   root.render(React.createElement(App));
 });
 await settle(600);
+ok('mounted studio preserves the English document language', window.document.documentElement.lang === 'en');
 
 const $ = (sel) => window.document.querySelector(sel);
 const $$ = (sel) => [...window.document.querySelectorAll(sel)];
@@ -618,8 +624,23 @@ ok(
   idFixtureFound.length === 1 && idFixtureFound[0].id === 'dup' && idFixtureFound[0].count === 2,
   idFixtureFound.map((d) => `${d.id}×${d.count}`).join(', '),
 );
+const htmlReports = [];
 const idPages = [];
-function uniqueIdsOn(step) {
+async function htmlOn(step) {
+  const htmlResult = await validateHtml(dom.serialize(), `rendered/${step}.html`);
+  htmlReports.push(htmlResult);
+  ok(`HTML standards: ${step}`, htmlResult.errors === 0, htmlResult.messages.map((m) => `${m.ruleId}: ${m.message}`).join('; '));
+}
+async function uniqueIdsOn(step) {
+  await htmlOn(step);
+  const inputProblems = checkInputTypes(window.document);
+  ok(`input types: ${step}`, inputProblems.length === 0, inputProblems.join("; "));
+  const inputViolations = await inputAxeViolations(window.document);
+  ok(`axe input attributes: ${step}`, inputViolations.length === 0, JSON.stringify(inputViolations));
+  const semanticProblems = checkSemanticHtml(window.document);
+  ok(`semantic HTML: ${step}`, semanticProblems.length === 0, semanticProblems.join("; "));
+  const violations = await semanticAxeViolations(window.document);
+  ok(`axe landmarks and headings: ${step}`, violations.length === 0, JSON.stringify(violations));
   idPages.push(step);
   const dupes = duplicateIds(window.document);
   const seen = $$('[id]');
@@ -633,7 +654,7 @@ function uniqueIdsOn(step) {
 // ---------- the shell ----------
 await until(async () => (!!$('.app') ? true : null), { tries: 40 });
 ok('the app mounts', !!$('.app'), $('.app') ? 'workbench' : shot());
-uniqueIdsOn('Sources');
+await uniqueIdsOn('Sources');
 ok('the project name is in the masthead', text().includes('What a cache does'), shot());
 ok('the rail lists the four steps', ['Sources', 'Scene plan', 'Look', 'Build and render'].every((s) => text().includes(s)));
 ok('the readout knows the three files arrived', /files\s*3 \/ 3/.test(text()), text().match(/files[^A-Z]*/)?.[0]);
@@ -656,7 +677,31 @@ await click(byText('.rail button', 'Scene plan'));
 ok('the plan has one row per scene', $$('.scenes li.scene').length >= 2, `${$$('.scenes li.scene').length} rows`);
 const rows = $$('.scenes li.scene');
 ok('scene rows show their text and their timing', rows.length >= 2 && /\d+:\d\d/.test(rows[0].textContent), rows[0]?.textContent.replace(/\s+/g, ' ').slice(0, 90));
-uniqueIdsOn('Scene plan');
+await uniqueIdsOn('Scene plan');
+
+// Exercise real controlled inputs and the real API: no invalid draft is saved.
+const wordCount = $('input[aria-label="words per scene"]');
+const sceneSeconds = $('input[aria-label="longest scene seconds"]');
+const savedSettings = (await call(`/projects/${id}`)).studio.plan;
+const trafficBeforeValidation = traffic.length;
+await setField(wordCount, '');
+await setField(sceneSeconds, '41');
+await click(byText('.scene-plan-form button', 'Re-plan'));
+await htmlOn('Scene plan validation errors');
+ok('validation: invalid submit focuses the error summary', window.document.activeElement === $('.error-summary'));
+ok('validation: all invalid fields are linked', $$('.error-summary a').length === 2 && wordCount.getAttribute('aria-invalid') === 'true');
+ok('validation: invalid draft sends no settings PATCH', !traffic.slice(trafficBeforeValidation).some((request) => request.startsWith('PATCH')));
+await click($('.error-summary a'));
+ok('validation: summary link focuses its field', window.document.activeElement === wordCount);
+await setField(wordCount, String(savedSettings.wordsPerScene));
+await setField(sceneSeconds, String(savedSettings.maxSceneSeconds));
+await click(byText('.scene-plan-form button', 'Re-plan'));
+const replanned = await until(async () => {
+  const latest = await call(`/projects/${id}/job`);
+  return latest?.kind === 'analyze' && latest.status === 'done' ? latest : null;
+});
+ok('validation: corrected settings save and re-plan through the API', !!replanned && !$('.error-summary'));
+
 
 const heading = $('.scenes li.scene input[type="text"]');
 await setField(heading, 'Cached copies are close by');
@@ -667,6 +712,7 @@ const savedHeading = await until(async () => {
 ok('a renamed heading is written to the project file', !!savedHeading, JSON.stringify(Object.values((await call(`/projects/${id}`)).studio.plan.headings)));
 
 const chipInput = $('.chips .chip.add input');
+ok('scene keyword input explicitly declares text', chipInput?.getAttribute('type') === 'text');
 await setField(chipInput, 'cache');
 await act(async () => {
   chipInput.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -695,7 +741,7 @@ const savedStyle = await until(async () => (await call(`/projects/${id}`)).studi
 ok('choosing a look is saved', !!savedStyle);
 ok('the frame preview is drawn in that look', !!$('.frame'), $('.frame')?.style.background);
 ok('the swatches follow the look', $$('.swatch').length >= 3, `${$$('.swatch').length} swatches`);
-uniqueIdsOn('Look');
+await uniqueIdsOn('Look');
 
 await setField($('input[aria-label="pace"]'), '1.25');
 const savedPace = await until(async () => (await call(`/projects/${id}`)).studio.look.pace === 1.25);
@@ -726,7 +772,7 @@ ok(
   !!refreshed && /\d\s?wav/.test(readout),
   refreshed ? readout.slice(0, 120) : `${readout.slice(0, 90)} · banner "${$('.main .err')?.textContent?.slice(0, 60) || 'none'}" · traffic ${traffic.slice(-4).join(' , ')}`,
 );
-uniqueIdsOn('Build and render');
+await uniqueIdsOn('Build and render');
 
 // ---------- the generated project, through the same client the page uses ----------
 const report = (await projectApi.state(id)).status.report;
@@ -749,7 +795,7 @@ ok(
 // The last reading of the unique-id rule: the page was scanned on all four
 // steps, and the one id the shell owns still resolves to exactly one element,
 // which is what the page's own script asks for (main.tsx: getElementById).
-uniqueIdsOn('after a refresh');
+await uniqueIdsOn('after a refresh');
 ok(
   'unique ids: the page was checked at every step',
   ['Sources', 'Scene plan', 'Look', 'Build and render', 'after a refresh'].every((step) => idPages.includes(step)),
@@ -760,6 +806,8 @@ ok(
   window.document.querySelectorAll('#root').length === 1 && window.document.getElementById('root') === window.document.querySelector('#root'),
   `${window.document.querySelectorAll('#root').length} element${window.document.querySelectorAll('#root').length === 1 ? '' : 's'} match #root`,
 );
+
+writeReport(path.join(ROOT, 'frontend/.reports/html-validation-ui.json'), htmlReports);
 
 ok('no uncaught errors in the page', problems.length === 0, problems.slice(0, 2).join(' | ').slice(0, 200));
 

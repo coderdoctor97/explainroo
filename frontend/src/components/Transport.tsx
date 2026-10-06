@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { fmtTime, type Word } from '../api';
 
 export type SceneSpan = { id: string; start: number; end: number };
@@ -40,6 +41,7 @@ export function wordAt(words: Word[], t: number): number {
 }
 
 type Props = {
+  children?: ReactNode;
   words: Word[];
   scenes: SceneSpan[];
   duration: number;
@@ -52,7 +54,7 @@ type Props = {
   onStep: (delta: number) => void;
 };
 
-export function Transport({ words, scenes, duration, time, playing, ready, font, onToggle, onSeek, onStep }: Props) {
+export function Transport({ words, scenes, duration, time, playing, ready, font, onToggle, onSeek, onStep, children }: Props) {
   const all = phrases(words);
   const current = all.find((p) => time >= p.start - 0.05 && time < p.end + 0.35) || null;
   const active = ready && words.length ? wordAt(words, time) : -1;
@@ -61,7 +63,7 @@ export function Transport({ words, scenes, duration, time, playing, ready, font,
   const pct = (t: number) => `${Math.max(0, Math.min(100, (t / length) * 100))}%`;
 
   return (
-    <div className="transport">
+    <footer className="transport" aria-label="Voice-over playback">
       <div className="line">
         <div className="row" style={{ gap: '0.35rem' }}>
           <button className="btn primary" onClick={onToggle} disabled={!ready} aria-label={playing ? 'Pause' : 'Play'}>
@@ -115,6 +117,7 @@ export function Transport({ words, scenes, duration, time, playing, ready, font,
           <span className="dim">{ready ? 'press play to hear the words light up' : 'upload the three files to hear the words light up'}</span>
         )}
       </div>
-    </div>
+      {children}
+    </footer>
   );
 }

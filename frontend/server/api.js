@@ -1,6 +1,7 @@
 // The studio's local API. It runs inside the dev server (see scripts/dev.mjs)
 // and only listens on 127.0.0.1, so it is reached through the Vite proxy at
 // /api/… and never directly from another machine.
+import { validatePlanSettings } from '../shared/plan-validation.js';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -234,6 +235,8 @@ export function startStudioApi({ port = 4318, host = '127.0.0.1' } = {}) {
         }
         if (method === 'PATCH') {
           const body = await readJson(req);
+          const fieldErrors = validatePlanSettings(body.plan);
+          if (Object.keys(fieldErrors).length) return json(res, 422, { error: 'Check the scene plan settings.', fieldErrors });
           return json(res, 200, { studio: writeStudio(id, body) });
         }
         if (method === 'DELETE') {

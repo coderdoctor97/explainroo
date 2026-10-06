@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { api } from '../api';
 
 // ---------- Lucide icons, drawn from the repo's own icon set ----------
@@ -58,11 +58,12 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 }
 
 export function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  const headingId = useId();
   return (
-    <div className="panel">
-      <h3>{title}</h3>
+    <section className="panel" aria-labelledby={headingId}>
+      <h3 id={headingId}>{title}</h3>
       {children}
-    </div>
+    </section>
   );
 }
 
