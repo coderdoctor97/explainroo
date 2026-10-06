@@ -210,6 +210,8 @@ export const api = {
   doctor: () => call<Doctor>('/doctor'),
   fileUrl: (id: string, path: string) => `/api/projects/${id}/file?path=${encodeURIComponent(path)}`,
   audioUrl: (id: string) => `/api/projects/${id}/audio`,
+  captionsUrl: (id: string) => `/api/projects/${id}/captions.vtt`,
+  transcriptUrl: (id: string) => `/api/projects/${id}/transcript.txt`,
   icon: (name: string) => call<{ name: string; paths: string[] }>(`/icons/${encodeURIComponent(name)}`),
   iconSearch: (q: string) => call<{ matches: string[] }>(`/icons?q=${encodeURIComponent(q)}`),
 };

@@ -61,6 +61,56 @@ async function readJson(req) {
   }
 }
 
+// WebVTT helpers for the captions endpoint. Same phrasing the engine uses
+// for burned-in captions: break at a long pause, at a sentence end, or when
+// the line gets too long. The API server runs these in Node, so they are
+// plain JS, not the typed TS the frontend uses.
+function phrasesForVtt(words, maxChars = 88) {
+  const out = [];
+  let cur = null;
+  const flush = () => {
+    if (cur && cur.words.length) {
+      out.push({ start: cur.start, end: cur.end, text: cur.words.map((w) => w.display).join(' ') });
+    }
+    cur = null;
+  };
+  words.forEach((w) => {
+    if (cur) {
+      const length = cur.words.reduce((n, x) => n + x.display.length + 1, 0) + w.display.length;
+      const gap = w.start - cur.end;
+      const prev = cur.words[cur.words.length - 1];
+      const ends = /[.!?;:]["''")]*$/.test(prev.display);
+      if (length > maxChars || gap > 0.55 || ends) flush();
+    }
+    if (!cur) cur = { words: [w], start: w.start, end: w.end };
+    else {
+      cur.words.push(w);
+      cur.end = w.end;
+    }
+  });
+  flush();
+  return out;
+}
+
+function fmtVtt(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds - Math.floor(seconds)) * 1000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+}
+
+function vttFromPhrases(phrases) {
+  const lines = ['WEBVTT', ''];
+  phrases.forEach((p, i) => {
+    lines.push(String(i + 1));
+    lines.push(`${fmtVtt(p.start)} --> ${fmtVtt(p.end)}`);
+    lines.push(p.text);
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+
 // Files inside one project, for the page: stills, the rendered MP4, the
 // generated script.md, the scene audio. Only relative paths inside the
 // project folder, never a dotfile.
@@ -205,6 +255,31 @@ export function startStudioApi({ port = 4318, host = '127.0.0.1' } = {}) {
         const file = sourcePath(id, 'audio');
         if (!fs.existsSync(file)) return json(res, 404, { error: 'no voice-over uploaded' });
         return sendFile(req, res, file);
+      }
+
+      // WebVTT captions generated from the word timings. The engine burns
+      // captions into the video frames, but the HTML5 <track> element also
+      // needs a file the player can show when the viewer turns captions on.
+      if (what === 'captions.vtt' && method === 'GET') {
+        const a = analyze(id);
+        if (!a.plan.words.length) return json(res, 404, { error: 'no word timings yet — upload timestamps first' });
+        const phrases = phrasesForVtt(a.plan.words);
+        const vtt = vttFromPhrases(phrases);
+        res.writeHead(200, { 'Content-Type': 'text/vtt; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(vtt);
+        return;
+      }
+
+      // Plain-text transcript of the same words, for viewers who want to read
+      // alongside the video or who cannot play it.
+      if (what === 'transcript.txt' && method === 'GET') {
+        const a = analyze(id);
+        if (!a.plan.words.length) return json(res, 404, { error: 'no word timings yet — upload timestamps first' });
+        const phrases = phrasesForVtt(a.plan.words);
+        const text = phrases.map((p) => p.text).join('\n');
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(text);
+        return;
       }
 
       if (what === 'plan' && method === 'GET') {

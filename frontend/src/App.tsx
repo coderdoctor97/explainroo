@@ -203,6 +203,18 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [toggle]);
 
+  // Pause the voice-over when the viewer switches to another tab, so the
+  // studio does not keep talking while it is in the background.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden' && playing) {
+        toggle();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [playing, toggle]);
+
   const studio = state?.studio;
   const style = state?.styles.find((s) => s.id === studio?.look.style);
   const font = style?.fonts.display;
@@ -456,6 +468,7 @@ export default function App() {
         onEnded={() => setPlaying(false)}
         onPause={() => setPlaying(false)}
         preload="metadata"
+        aria-label="Voice-over audio"
       />
       <span className="visually-hidden" aria-live="polite">
         {job ? `${job.label}: ${job.status}` : ''}

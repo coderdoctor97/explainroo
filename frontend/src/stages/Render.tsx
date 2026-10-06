@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, fmtBytes, fmtTime, type Doctor, type Job, type ProjectStatus, type Studio } from '../api';
+import { AccessibleVideo } from '../components/AccessibleVideo';
 import { Hang, Log, Panel } from '../components/ui';
 
 type Kind = 'build' | 'check' | 'still' | 'renderDraft' | 'renderVideo';
@@ -152,7 +153,12 @@ export function Render({ id, status, studio, job, doctor, busy, run, onRefresh }
         <Panel title="The video">
           {video ? (
             <div className="output stack">
-              <video controls src={api.fileUrl(id, 'out/video.mp4')} />
+              <AccessibleVideo
+                src={api.fileUrl(id, 'out/video.mp4')}
+                title={status.report?.title || studio.name || 'Video'}
+                captions={[{ src: api.captionsUrl(id), srclang: 'en', label: 'English captions', default: true }]}
+                transcriptUrl={api.transcriptUrl(id)}
+              />
               <p className="mono dim">
                 out/video.mp4 · {fmtBytes(video.bytes)} · finished {new Date(video.mtime).toLocaleString()}
               </p>

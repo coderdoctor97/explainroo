@@ -297,6 +297,10 @@ input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius
   .transport .line { grid-template-columns: auto minmax(0, 1fr); }
   .transport .time { grid-column: 1 / -1; text-align: left; }
 }
+.accessible-video video { width: 100%; max-width: 100%; border-radius: var(--radius-sm); background: #000; }
+.transcript-toggle { margin-top: var(--space-2xs); }
+.transcript { margin-top: var(--space-2xs); padding: var(--space-xs); background: var(--paper-2); border: var(--rule-hair); border-radius: var(--radius-sm); max-height: 240px; overflow: auto; }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
