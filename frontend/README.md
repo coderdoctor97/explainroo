@@ -112,10 +112,13 @@ frontend/
     check-viewport.mjs  the html/viewport guard: one responsive viewport, zoom left on
     check-sri.mjs       the html/subresource-integrity guard for external scripts and stylesheets
     check-unique-ids.mjs the html/unique-id guard: no duplicate ids in a file or a page
+    check-defer-async.mjs the html/defer-async guard: every <script src> has defer, async or type="module"
+    check-video-accessibility.mjs the html/video-accessibility guard: controls, captions, aria-label, no autoplay
   src/
     api.ts              one typed function per route; all URLs are relative
     App.tsx             the shell: projects, steps, transport, persistence
-    components/         ui.tsx (controls), Transport.tsx, Frame.tsx, Readout.tsx
+    components/         ui.tsx (controls), Transport.tsx, Frame.tsx, Readout.tsx, AccessibleVideo.tsx
+    captions-vtt.ts     generates WebVTT captions and plain-text transcripts from word timings
     stages/             Sources.tsx, Plan.tsx, Look.tsx, Render.tsx
     styles/             tokens.css (the design system), app.css
   server/
@@ -142,6 +145,8 @@ node frontend/scripts/check-charset.mjs  # the charset guard alone, every HTML f
 node frontend/scripts/check-viewport.mjs # the viewport guard alone, every HTML file
 node frontend/scripts/check-sri.mjs      # SRI guard, source HTML + frontend-dist/ when built
 node frontend/scripts/check-unique-ids.mjs # unique-id guard, HTML + component sources
+node frontend/scripts/check-defer-async.mjs # defer-async guard, every <script src> must be non-blocking
+node frontend/scripts/check-video-accessibility.mjs # video-a11y guard: controls, captions, aria-label, no autoplay
 ```
 
 The charset guard is its own script because it has to run on a checkout with no
@@ -200,6 +205,36 @@ axe-core, and the studio ships no linter; the rule is two functions of plain
 JavaScript. It is wired into `npm run test:ui` — the studio's own page test —
 so the rule stays inside `frontend/` like the guards before it, and runs with
 `npm run test:ui` on any checkout and in any CI that runs the test suite.
+
+The defer-async guard is the html/defer-async rule: every `<script src="…">` in
+an HTML or component file must carry `defer`, `async` or `type="module"`, so the
+parser is not blocked waiting for the script to download and run. Inline scripts
+(no `src`) are not checked — they are already synchronous by nature and run where
+the parser finds them. A script with `type="module"` does not also need `defer`:
+module scripts are deferred by the HTML specification. A script that sets both
+`defer` and `async` is reported as a warning — the two conflict, browsers pick
+`async`, and writing both is almost always a mistake. A component or template file
+(`jsx`, `tsx`, `vue`, `svelte`, `astro`, `hbs`, `ejs`, `pug`, `php`, `erb`) that
+injects a plain `<script src>` without one of the three attributes is reported as
+a problem: the same component rendered twice writes the same blocking tag twice.
+A `src` that looks generated (`{var}`, `${expr}`, `{{mustache}}`, `<% erb %>`) is
+left alone — it is not a literal tag until the template language fills it in. The
+guard is zero-dependency, uses the same tag reader as the other head guards, and
+is wired into `npm run lint:html` and `npm run test:ui`.
+
+The video-accessibility guard is the html/video-accessibility rule: every
+`<video>` must have `controls`, an `aria-label` (or `aria-labelledby`), no
+`autoplay`, and a `<track kind="captions">`; every `<audio>` must have an
+`aria-label` and no `autoplay`. The guard checks HTML files with the same tag
+parser as the other head guards, and component files (tsx, jsx, vue, svelte,
+astro, hbs, ejs, etc.) with a JSX-aware tag reader that counts brace depth so
+a `>` inside `{() => …}` does not end the tag early. The `AccessibleVideo`
+component is exempt from the per-attribute checks because it adds controls,
+aria-label and captions at render time from its props. The API server generates
+WebVTT captions at `/api/projects/:id/captions.vtt` and plain-text transcripts
+at `/api/projects/:id/transcript.txt`, both from the word timings the engine
+already uses for burned-in captions. The guard is zero-dependency and wired into
+`npm run lint:html` and `npm run test:ui`.
 
 `test:ui` mounts the real components in jsdom against a real API, then does
 what a person does: reads the sources, renames a heading, adds a word, merges
