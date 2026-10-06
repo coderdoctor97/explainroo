@@ -95,7 +95,7 @@ function sampleFiles() {
 }
 
 // ---------- a page to mount into ----------
-const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
+const dom = new JSDOM(fs.readFileSync(path.join(ROOT, 'frontend/index.html'), 'utf8'), {
   url: 'http://localhost:5173/',
   pretendToBeVisual: true,
 });
@@ -159,6 +159,7 @@ await act(async () => {
   root.render(React.createElement(App));
 });
 await settle(600);
+ok('mounted studio preserves the English document language', window.document.documentElement.lang === 'en');
 
 const $ = (sel) => window.document.querySelector(sel);
 const $$ = (sel) => [...window.document.querySelectorAll(sel)];
